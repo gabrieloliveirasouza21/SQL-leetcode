@@ -1,9 +1,6 @@
 slug: veteranas-na-ativa
-order: 2
 title: Veteranas na ativa
-section: fundamentos
 difficulty: facil
-topics: [WHERE, Operadores, 'NULL']
 statement: |
   O palco principal é reservado a bandas formadas antes de 2000 e que ainda estão em atividade. Uma banda em atividade tem `disbanded_year` nulo.
 

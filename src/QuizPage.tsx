@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { problems, sections, type Problem } from './content';
+import { problems, subtopicNames, topicOf, type Problem } from './content';
 import { inline, Paragraphs } from './ProblemPage';
 import { DIFFICULTY_LABEL } from './RoadmapPage';
 
 export function QuizPage({ problem, solved, onSolved }: { problem: Problem; solved: boolean; onSolved: (slug: string) => void }) {
   const [picked, setPicked] = useState<number | null>(null);
-  const section = sections.find((s) => s.id === problem.section);
+  const topic = topicOf(problem.slug);
   const next = problems[problems.indexOf(problem) + 1];
   const correct = picked === problem.answer;
 
@@ -22,7 +22,10 @@ export function QuizPage({ problem, solved, onSolved }: { problem: Problem; solv
         <span className={`badge ${problem.difficulty}`}>{DIFFICULTY_LABEL[problem.difficulty]}</span>
         {solved && <span className="badge done">Resolvido</span>}
       </div>
-      <ul className="topics">{problem.topics.map((topic) => <li key={topic}>{topic}</li>)}</ul>
+      <ul className="topics">
+        {topic && <li className="topic-name">{topic.title}</li>}
+        {subtopicNames(problem.slug).map((name) => <li key={name}>{name}</li>)}
+      </ul>
       <Paragraphs text={problem.statement} />
 
       <div className="options" role="group" aria-label="Opções de resposta">
@@ -43,9 +46,9 @@ export function QuizPage({ problem, solved, onSolved }: { problem: Problem; solv
         <section className="quiz-after">
           <h3>Para fixar</h3>
           <Paragraphs text={problem.explanation} />
-          {section && (
+          {topic && (
             <ul className="study">
-              {section.study.map((link) => (
+              {topic.study.map((link) => (
                 <li key={link.url}><a href={link.url} target="_blank" rel="noreferrer">{link.label}</a></li>
               ))}
             </ul>

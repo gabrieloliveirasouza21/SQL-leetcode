@@ -1,9 +1,6 @@
 slug: agenda-2026
-order: 6
 title: A agenda de 2026
-section: joins
 difficulty: medio
-topics: [INNER JOIN, WHERE, ORDER BY]
 statement: |
   O site do festival precisa publicar a agenda do ano.
 

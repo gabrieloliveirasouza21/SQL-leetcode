@@ -1,9 +1,6 @@
 - slug: contatos-com-telefone
-  order: 5
   title: Quem atende o telefone?
-  section: agregacao
   difficulty: facil
-  topics: [COUNT, 'NULL']
   statement: |
     A assessoria quer saber quantos contatos de imprensa existem e quantos têm telefone cadastrado.
 
@@ -23,11 +20,8 @@
       sql: SELECT COUNT(*), COUNT(outlet) FROM press_contacts;
 
 - slug: extremos-de-preco
-  order: 6
   title: Do mais barato ao mais caro
-  section: agregacao
   difficulty: facil
-  topics: [MIN, MAX, AVG, GROUP BY]
   statement: |
     Para cada banda com pelo menos um show, retorne o nome, o menor preço, o maior preço e a média de `ticket_price` arredondada para 2 casas. Ordene pelo nome da banda.
   ordered: true
@@ -52,11 +46,8 @@
       sql: SELECT b.name, MIN(s.ticket_price), MAX(s.ticket_price), ROUND(AVG(s.ticket_price), 2) FROM bands b LEFT JOIN shows s ON b.id = s.band_id GROUP BY b.id ORDER BY b.name;
 
 - slug: credenciais
-  order: 1
   title: Credenciais sem duplicata
-  section: restricoes
   difficulty: facil
-  topics: [PRIMARY KEY, UNIQUE, NOT NULL]
   statement: |
     Crie a tabela `accreditations` com as colunas `id`, `code` e `holder`, nesta ordem.
 
@@ -92,11 +83,8 @@
       sql: CREATE TABLE accreditations (id INTEGER, code TEXT NOT NULL UNIQUE, holder TEXT NOT NULL);
 
 - slug: limite-de-desconto
-  order: 2
   title: Desconto tem limite
-  section: restricoes
   difficulty: medio
-  topics: [CHECK]
   statement: |
     Crie a tabela `promotions` com `id` (inteiro, chave primária), `code` (texto obrigatório) e `discount` (inteiro obrigatório).
 
@@ -130,11 +118,8 @@
       sql: CREATE TABLE promotions (id INTEGER PRIMARY KEY, code TEXT NOT NULL, discount INTEGER NOT NULL CHECK (discount >= 1));
 
 - slug: setlist-de-verdade
-  order: 3
   title: Música em show que não existe
-  section: restricoes
   difficulty: medio
-  topics: [FOREIGN KEY]
   statement: |
     Crie a tabela `setlists` com `id` (inteiro, chave primária), `show_id` (inteiro obrigatório) e `song` (texto obrigatório).
 

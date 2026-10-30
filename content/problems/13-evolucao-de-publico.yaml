@@ -1,9 +1,6 @@
 slug: evolucao-de-publico
-order: 13
 title: A banda está crescendo?
-section: avancado
 difficulty: dificil
-topics: [LAG, CTE, LEFT JOIN]
 statement: |
   Queremos saber se cada banda vende mais ou menos a cada show.
 

@@ -1,9 +1,6 @@
 slug: bandas-sem-show
-order: 7
 title: Fora da programação
-section: joins
 difficulty: medio
-topics: [LEFT JOIN, 'NULL']
 statement: |
   A produção quer convidar bandas que ainda não têm nenhum show marcado.
 

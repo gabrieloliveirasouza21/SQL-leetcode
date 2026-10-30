@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { problems, sections, type Difficulty } from './content';
+import { Fragment, useState } from 'react';
+import { problems, topicProblemSlugs, topics, type Difficulty, type Problem } from './content';
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   facil: 'Fácil',
@@ -7,8 +7,31 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   dificil: 'Difícil',
 };
 
+const bySlug = new Map(problems.map((problem) => [problem.slug, problem]));
+
+function ProblemList({ slugs, solved, visible }: { slugs: string[]; solved: Set<string>; visible: (p: Problem) => boolean }) {
+  return (
+    <ul className="problem-list">
+      {slugs.map((slug) => bySlug.get(slug)!).filter(visible).map((problem) => (
+        <li key={problem.slug}>
+          <a className="problem-link" href={`#/problema/${problem.slug}`}>
+            <span className={solved.has(problem.slug) ? 'check solved' : 'check'} aria-hidden="true">
+              {solved.has(problem.slug) ? '✓' : ''}
+            </span>
+            <span className="problem-title">{problem.title}</span>
+            {problem.options && <span className="kind">Conceito</span>}
+            <span className={`badge ${problem.difficulty}`}>{DIFFICULTY_LABEL[problem.difficulty]}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function RoadmapPage({ solved }: { solved: Set<string> }) {
   const [filter, setFilter] = useState<Difficulty | 'todas'>('todas');
+  const visible = (problem: Problem) => filter === 'todas' || problem.difficulty === filter;
+  const firstOpen = topics.find((topic) => topicProblemSlugs(topic).some((slug) => !solved.has(slug)))?.id;
 
   return (
     <main className="roadmap">
@@ -33,46 +56,41 @@ export function RoadmapPage({ solved }: { solved: Set<string> }) {
       </section>
 
       <ol className="path">
-        {sections.map((section) => {
-          const all = problems.filter((p) => p.section === section.id);
-          const visible = all.filter((p) => filter === 'todas' || p.difficulty === filter);
-          const done = all.filter((p) => solved.has(p.slug)).length;
-          const complete = all.length > 0 && done === all.length;
+        {topics.map((topic) => {
+          const slugs = topicProblemSlugs(topic);
+          const done = slugs.filter((slug) => solved.has(slug)).length;
+          const complete = done === slugs.length;
+          const matching = slugs.some((slug) => visible(bySlug.get(slug)!));
           return (
-            <li key={section.id} className={complete ? 'node complete' : 'node'}>
+            <li key={topic.id} className={complete ? 'node complete' : 'node'}>
               <span className="node-marker" aria-hidden="true">{complete ? '✓' : ''}</span>
-              <div className="node-body">
-                <div className="node-head">
-                  <h2>{section.title}</h2>
-                  <span className="node-count">{done}/{all.length}</span>
-                </div>
-                <p>{section.summary}</p>
-                {visible.length === 0 ? (
-                  <p className="empty">Nenhum problema nessa dificuldade.</p>
-                ) : (
-                  <ul className="problem-list">
-                    {visible.map((problem) => (
-                      <li key={problem.slug}>
-                        <a className="problem-link" href={`#/problema/${problem.slug}`}>
-                          <span className={solved.has(problem.slug) ? 'check solved' : 'check'} aria-hidden="true">
-                            {solved.has(problem.slug) ? '✓' : ''}
-                          </span>
-                          <span className="problem-title">{problem.title}</span>
-                          {problem.options && <span className="kind">Conceito</span>}
-                          <span className={`badge ${problem.difficulty}`}>{DIFFICULTY_LABEL[problem.difficulty]}</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <details className="node-body" open={filter !== 'todas' || topic.id === firstOpen}>
+                <summary className="node-head">
+                  <h2>{topic.title}</h2>
+                  <span className="node-count">{done}/{slugs.length}</span>
+                </summary>
+                <p className="node-summary">{topic.summary}</p>
+                {!matching && <p className="empty">Nenhum problema nessa dificuldade.</p>}
+                {topic.problems && <ProblemList slugs={topic.problems} solved={solved} visible={visible} />}
+                {topic.subtopics.map((subtopic, index) => {
+                  if (!subtopic.problems.some((slug) => visible(bySlug.get(slug)!))) return null;
+                  const previousVisible = topic.subtopics.slice(0, index).reverse().find((s) => s.problems.some((slug) => visible(bySlug.get(slug)!)));
+                  return (
+                    <Fragment key={`${subtopic.group ?? ''}/${subtopic.name}`}>
+                      {subtopic.group && subtopic.group !== previousVisible?.group && <h3 className="group">{subtopic.group}</h3>}
+                      <h4 className="subtopic">{subtopic.name}</h4>
+                      <ProblemList slugs={subtopic.problems} solved={solved} visible={visible} />
+                    </Fragment>
+                  );
+                })}
+              </details>
             </li>
           );
         })}
       </ol>
       <footer className="credit">
-        Tópicos inspirados no <a href="https://roadmap.sh/sql" target="_blank" rel="noreferrer">roadmap de SQL do roadmap.sh</a>.
-        Problemas e dados são originais. Projeto independente.
+        Tópicos e subtópicos seguem o <a href="https://roadmap.sh/sql" target="_blank" rel="noreferrer">roadmap de SQL do roadmap.sh</a>.
+        Problemas e dados são originais. Projeto independente, sem vínculo com o roadmap.sh.
       </footer>
     </main>
   );

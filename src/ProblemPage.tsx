@@ -3,7 +3,7 @@ import { sql } from '@codemirror/lang-sql';
 import { EditorView, keymap } from '@codemirror/view';
 import { Prec } from '@codemirror/state';
 import CodeMirror from '@uiw/react-codemirror';
-import { dataset, problems, sections, type Problem } from './content';
+import { dataset, problems, subtopicNames, topicOf, type Problem } from './content';
 import { expectedResult, runQuery, submitQuery } from './judge/client';
 import type { ResultSet, Verdict } from './judge/judge';
 import { loadDraft, saveDraft } from './progress';
@@ -122,7 +122,7 @@ export function ProblemPage({ problem, solved, onSolved }: { problem: Problem; s
   const [expected, setExpected] = useState<ResultSet | null>(null);
   const [hintsShown, setHintsShown] = useState(0);
 
-  const section = sections.find((s) => s.id === problem.section);
+  const topic = topicOf(problem.slug);
   const next = problems[problems.indexOf(problem) + 1];
 
   useEffect(() => {
@@ -178,7 +178,10 @@ export function ProblemPage({ problem, solved, onSolved }: { problem: Problem; s
           <span className={`badge ${problem.difficulty}`}>{DIFFICULTY_LABEL[problem.difficulty]}</span>
           {solved && <span className="badge done">Resolvido</span>}
         </div>
-        <ul className="topics">{problem.topics.map((topic) => <li key={topic}>{topic}</li>)}</ul>
+        <ul className="topics">
+          {topic && <li className="topic-name">{topic.title}</li>}
+          {subtopicNames(problem.slug).map((name) => <li key={name}>{name}</li>)}
+        </ul>
         <Paragraphs text={problem.statement} />
 
         <details className="panel">
@@ -203,11 +206,11 @@ export function ProblemPage({ problem, solved, onSolved }: { problem: Problem; s
           </button>
         ) : null}
 
-        {section && (
+        {topic && (
           <>
             <h3>Para estudar</h3>
             <ul className="study">
-              {section.study.map((link) => (
+              {topic.study.map((link) => (
                 <li key={link.url}><a href={link.url} target="_blank" rel="noreferrer">{link.label}</a></li>
               ))}
             </ul>

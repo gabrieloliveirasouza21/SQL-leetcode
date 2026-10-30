@@ -1,9 +1,6 @@
 slug: linhagem-de-mentores
-order: 14
 title: A linhagem de Ana Ferro
-section: avancado
 difficulty: dificil
-topics: [CTE recursiva]
 statement: |
   O documentário do festival vai contar a influência de Ana Ferro na cena. Em `members`, `mentor_id` aponta para quem ensinou cada músico.
 

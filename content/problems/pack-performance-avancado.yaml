@@ -1,9 +1,6 @@
 - slug: so-o-necessario
-  order: 1
   title: Só o que a tela mostra
-  section: performance
   difficulty: facil
-  topics: [Projeção seletiva]
   statement: |
     O app de celular mostra só a data e o preço dos shows de bandas de `Heavy Metal`, mas o código atual usa `SELECT *` e traz tudo pela rede.
 
@@ -27,11 +24,8 @@
       sql: SELECT show_date, ticket_price FROM shows WHERE band_id = 4 ORDER BY show_date, ticket_price;
 
 - slug: menos-subqueries
-  order: 2
   title: Uma subquery para cada coluna
-  section: performance
   difficulty: medio
-  topics: [Reduzir subqueries, LEFT JOIN]
   statement: |
     Esta query funciona, mas executa duas subqueries para cada banda:
 
@@ -60,11 +54,8 @@
       sql: SELECT b.name, COUNT(s.id), MAX(s.ticket_price) FROM bands b JOIN shows s ON s.band_id = b.id GROUP BY b.id ORDER BY b.name;
 
 - slug: lendo-o-plano
-  order: 3
   title: Lendo o plano de execução
-  section: performance
   difficulty: medio
-  topics: [Análise de consultas]
   statement: |
     Rodando `EXPLAIN QUERY PLAN` em uma consulta lenta, o SQLite mostra:
 
@@ -91,11 +82,8 @@
   traps: []
 
 - slug: otimizar-join
-  order: 4
   title: Um join lento
-  section: performance
   difficulty: medio
-  topics: [Otimizar joins]
   statement: |
     Esta consulta está lenta, e `tickets` tem milhões de linhas:
 
@@ -118,11 +106,8 @@
   traps: []
 
 - slug: numerando-os-shows
-  order: 10
   title: Primeiro, segundo, terceiro show
-  section: avancado
   difficulty: medio
-  topics: [ROW_NUMBER]
   statement: |
     Para cada show, retorne o nome da banda, a data e o número do show na agenda daquela banda, começando em 1. A numeração segue a data e, em caso de empate, o `id` do show.
 
@@ -147,11 +132,8 @@
       sql: SELECT b.name, s.show_date, ROW_NUMBER() OVER (PARTITION BY s.band_id ORDER BY s.show_date DESC, s.id DESC) FROM shows s JOIN bands b ON b.id = s.band_id ORDER BY b.name, s.show_date, s.id;
 
 - slug: ranking-de-precos
-  order: 11
   title: Pódio sem buracos
-  section: avancado
   difficulty: medio
-  topics: [DENSE_RANK, RANK]
   statement: |
     Monte o ranking de preços de todos os shows, do mais caro ao mais barato. Preços iguais dividem a mesma posição, e a posição seguinte não pula números: depois de dois em 2º lugar, vem o 3º.
 
@@ -175,11 +157,8 @@
       sql: SELECT id, ticket_price, ROW_NUMBER() OVER (ORDER BY ticket_price DESC, id) AS p FROM shows ORDER BY p, id;
 
 - slug: proximo-show
-  order: 15
   title: Qual é o próximo show?
-  section: avancado
   difficulty: medio
-  topics: [LEAD]
   statement: |
     Para cada show, retorne o nome da banda, a data e a data do próximo show da mesma banda. O último show de cada banda fica com nulo.
 
@@ -204,11 +183,8 @@
       sql: SELECT b.name, s.show_date, LEAD(s.show_date) OVER (ORDER BY s.show_date, s.id) FROM shows s JOIN bands b ON b.id = s.band_id ORDER BY b.name, s.show_date, s.id;
 
 - slug: pedidos-por-status
-  order: 16
   title: Status em colunas
-  section: avancado
   difficulty: medio
-  topics: [PIVOT e UNPIVOT, CASE]
   statement: |
     A diretoria quer ver um relatório em que cada status vira uma coluna.
 
@@ -236,11 +212,8 @@
       sql: SELECT show_id, SUM(CASE WHEN status = 'pago' THEN quantity END), SUM(CASE WHEN status = 'reservado' THEN quantity END), SUM(CASE WHEN status = 'cancelado' THEN quantity END) FROM tickets GROUP BY show_id ORDER BY show_id;
 
 - slug: contatos-em-linhas
-  order: 17
   title: Colunas em linhas
-  section: avancado
   difficulty: medio
-  topics: [PIVOT e UNPIVOT]
   statement: |
     A ferramenta de disparo espera uma linha por forma de contato. Transforme as colunas `email` e `phone` de `press_contacts` em linhas com `id`, tipo e valor.
 

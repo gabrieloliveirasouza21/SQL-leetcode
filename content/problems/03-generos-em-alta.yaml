@@ -1,9 +1,6 @@
 slug: generos-em-alta
-order: 3
 title: Gêneros com palco próprio
-section: agregacao
 difficulty: facil
-topics: [GROUP BY, HAVING, COUNT]
 statement: |
   Um gênero só ganha palco próprio se tiver pelo menos 2 bandas cadastradas.
 

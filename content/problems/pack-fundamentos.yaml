@@ -1,9 +1,6 @@
 - slug: paises-representados
-  order: 3
   title: Quantas bandeiras no palco?
-  section: fundamentos
   difficulty: facil
-  topics: [SELECT, DISTINCT]
   statement: |
     A cenografia vai pendurar uma bandeira de cada país com banda cadastrada.
 
@@ -24,11 +21,8 @@
       sql: SELECT DISTINCT country FROM bands;
 
 - slug: thrash-ou-doom
-  order: 4
   title: Thrash ou doom da velha guarda
-  section: fundamentos
   difficulty: facil
-  topics: [Operadores, WHERE]
   statement: |
     Uma noite temática vai reunir bandas de `Thrash Metal` ou `Doom Metal` formadas entre 1994 e 2003, incluindo esses dois anos.
 
@@ -52,11 +46,8 @@
       sql: SELECT name FROM bands WHERE genre IN ('Thrash Metal', 'Doom Metal') AND formed_year > 1994 AND formed_year <= 2003 ORDER BY name;
 
 - slug: ordem-de-execucao
-  order: 5
   title: Por que o apelido não funciona no WHERE?
-  section: fundamentos
   difficulty: medio
-  topics: [Palavras-chave SQL, FROM]
   statement: |
     Esta query dá erro em muitos bancos, porque o apelido `preco` não é reconhecido no `WHERE`:
 

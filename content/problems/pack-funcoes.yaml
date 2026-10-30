@@ -1,9 +1,6 @@
 - slug: preco-de-etiqueta
-  order: 1
   title: Preço de etiqueta
-  section: funcoes
   difficulty: facil
-  topics: [ROUND, CEILING, FLOOR]
   statement: |
     Para cada produto de `merch`, retorne o `item`, o preço promocional com 15% de desconto arredondado para 2 casas, o preço arredondado sempre para cima e o preço arredondado sempre para baixo. Ordene pelo `item`.
   ordered: true
@@ -26,11 +23,8 @@
       sql: SELECT item, ROUND(price, 2), CEILING(price), FLOOR(price) FROM merch ORDER BY item;
 
 - slug: caixas-de-reposicao
-  order: 2
   title: Caixas de reposição
-  section: funcoes
   difficulty: facil
-  topics: [MOD, ABS]
   statement: |
     Os produtos são embalados em caixas de 12, e a meta de estoque é 50 unidades.
 
@@ -53,11 +47,8 @@
       sql: SELECT item, stock % 12, stock - 50 FROM merch ORDER BY id;
 
 - slug: veiculo-independente
-  order: 3
   title: Sem veículo, independente
-  section: funcoes
   difficulty: medio
-  topics: [NULLIF, COALESCE]
   statement: |
     Em `press_contacts`, jornalistas sem veículo aparecem de duas formas: `outlet` nulo ou texto vazio. O credenciamento quer mostrar `Independente` nos dois casos.
 
@@ -79,11 +70,8 @@
       sql: SELECT full_name, NULLIF(outlet, '') FROM press_contacts ORDER BY full_name;
 
 - slug: dominios-da-imprensa
-  order: 4
   title: De quais domínios vêm os jornalistas?
-  section: funcoes
   difficulty: medio
-  topics: [SUBSTRING, LOWER, GROUP BY]
   statement: |
     Os e-mails foram digitados sem padrão de maiúsculas e minúsculas. Agrupe os contatos pelo domínio, que é tudo depois do `@`, em letras minúsculas.
 
@@ -108,11 +96,8 @@
       sql: SELECT LOWER(SUBSTR(email, INSTR(email, '@'))) AS d, COUNT(*) AS t FROM press_contacts GROUP BY d ORDER BY t DESC, d;
 
 - slug: crachas-da-imprensa
-  order: 5
   title: Crachás da imprensa
-  section: funcoes
   difficulty: medio
-  topics: [CONCAT, UPPER, REPLACE, LENGTH]
   statement: |
     Para cada contato com `phone` preenchido, retorne por `id` crescente:
 
@@ -139,11 +124,8 @@
       sql: SELECT CONCAT(UPPER(full_name), ' #', id), REPLACE(REPLACE(REPLACE(REPLACE(phone, '(', ''), ')', ''), ' ', ''), '-', ''), LENGTH(full_name) FROM press_contacts ORDER BY id;
 
 - slug: pico-de-entrada
-  order: 7
   title: O horário de pico
-  section: funcoes
   difficulty: medio
-  topics: [DATEPART, TIMESTAMP]
   statement: |
     A segurança quer saber quantas entradas acontecem em cada hora do dia, somando todos os dias.
 
@@ -167,11 +149,8 @@
       sql: SELECT scanned_at, COUNT(*) FROM checkins GROUP BY scanned_at ORDER BY scanned_at;
 
 - slug: primeira-entrada-do-dia
-  order: 8
   title: A primeira entrada do dia
-  section: funcoes
   difficulty: medio
-  topics: [DATE, TIME, TIMESTAMP]
   statement: |
     `scanned_at` guarda data e hora juntas. Para cada dia com entradas, retorne a data, o horário da primeira entrada desse dia e o total de entradas. Ordene pela data.
   ordered: true
@@ -191,11 +170,8 @@
       sql: SELECT DATE(scanned_at) AS d, MIN(scanned_at), COUNT(*) FROM checkins GROUP BY d ORDER BY d;
 
 - slug: lembrete-de-show
-  order: 9
   title: Lembrete uma semana antes
-  section: funcoes
   difficulty: facil
-  topics: [DATEADD, DATE]
   statement: |
     O sistema manda um lembrete 7 dias antes de cada show. Retorne `id`, `show_date` e a data do lembrete, ordenados por `id`.
 

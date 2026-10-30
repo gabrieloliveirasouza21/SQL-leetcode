@@ -1,9 +1,6 @@
 slug: ingressos-pagos
-order: 4
 title: Quantos ingressos saíram?
-section: agregacao
 difficulty: facil
-topics: [SUM, WHERE]
 statement: |
   Cada linha de `tickets` é um pedido, e um pedido pode ter vários ingressos na coluna `quantity`. Reservas e cancelamentos não contam como venda.
 

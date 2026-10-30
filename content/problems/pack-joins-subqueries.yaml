@@ -1,9 +1,6 @@
 - slug: vitrine-de-produtos
-  order: 10
   title: A vitrine de produtos
-  section: joins
   difficulty: medio
-  topics: [RIGHT JOIN, COALESCE]
   statement: |
     A loja lista todos os produtos de `merch`. Alguns são do próprio festival e têm `band_id` nulo.
 
@@ -26,11 +23,8 @@
       sql: SELECT m.item, COALESCE(b.name, 'Festival') FROM bands b JOIN merch m ON m.band_id = b.id ORDER BY m.item;
 
 - slug: sem-par-dos-dois-lados
-  order: 11
   title: Sem par dos dois lados
-  section: joins
   difficulty: medio
-  topics: [FULL OUTER JOIN]
   statement: |
     O comercial quer duas listas em uma só: bandas sem nenhum produto e produtos sem nenhuma banda.
 
@@ -54,11 +48,8 @@
       sql: SELECT b.name, m.item FROM bands b FULL OUTER JOIN merch m ON m.band_id = b.id WHERE m.id IS NULL ORDER BY b.name, m.item;
 
 - slug: grade-de-possibilidades
-  order: 12
   title: Todas as combinações
-  section: joins
   difficulty: medio
-  topics: [CROSS JOIN, DISTINCT]
   statement: |
     A curadoria quer avaliar cada casa com cada gênero musical cadastrado.
 
@@ -81,11 +72,8 @@
       sql: SELECT DISTINCT v.name, b.genre FROM venues v JOIN shows s ON s.venue_id = v.id JOIN bands b ON b.id = s.band_id ORDER BY v.name, b.genre;
 
 - slug: distancia-da-media
-  order: 5
   title: Longe da média
-  section: subqueries
   difficulty: medio
-  topics: [Subquery escalar]
   statement: |
     Para cada show, retorne o `id`, o `ticket_price` e a diferença entre esse preço e a média geral de preços de todos os shows, arredondada para 2 casas. Ordene pelo `id`.
   ordered: true
@@ -107,11 +95,8 @@
       sql: SELECT id, ticket_price, ROUND(ticket_price - 154.58, 2) FROM shows ORDER BY id;
 
 - slug: quem-tocou-na-arena
-  order: 6
   title: Quem toca na Arena Tupi?
-  section: subqueries
   difficulty: medio
-  topics: [Subquery de coluna, Subquery aninhada]
   statement: |
     Liste o `name` das bandas com pelo menos um show na casa `Arena Tupi`, em ordem alfabética.
 
@@ -143,11 +128,8 @@
       sql: SELECT name FROM bands WHERE id IN (SELECT band_id FROM shows WHERE venue_id = 1) ORDER BY name;
 
 - slug: mesma-banda-mesmo-preco
-  order: 7
   title: Mesma banda, mesmo preço
-  section: subqueries
   difficulty: medio
-  topics: [Subquery de linha]
   statement: |
     Encontre o show com o ingresso mais caro. Em caso de empate no preço, vale o de menor `id`.
 
@@ -174,11 +156,8 @@
       sql: SELECT id, show_date FROM shows WHERE band_id = (SELECT band_id FROM shows ORDER BY ticket_price DESC, id LIMIT 1) ORDER BY id;
 
 - slug: media-de-publico
-  order: 8
   title: Média de público por show
-  section: subqueries
   difficulty: dificil
-  topics: [Subquery de tabela, AVG]
   statement: |
     Para cada banda com show, calcule a média de ingressos pagos por show, arredondada para 2 casas. Um show sem venda paga conta como 0 na média.
 

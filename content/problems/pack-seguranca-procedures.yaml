@@ -1,9 +1,6 @@
 - slug: integridade-no-banco
-  order: 1
   title: Validar no site já não basta?
-  section: seguranca
   difficulty: facil
-  topics: [Integridade de dados]
   statement: |
     O formulário do site já impede desconto acima de 50%. Alguém propõe não criar um `CHECK` no banco, porque seria redundante.
 
@@ -24,11 +21,8 @@
   traps: []
 
 - slug: grant-e-revoke
-  order: 2
   title: O acesso do estagiário
-  section: seguranca
   difficulty: medio
-  topics: [GRANT e REVOKE]
   statement: |
     O SQLite não tem usuários, então este problema usa a sintaxe do PostgreSQL. Uma pessoa estagiária do marketing precisa só consultar a tabela `shows`, usando a conta `estagio`.
 
@@ -49,11 +43,8 @@
   traps: []
 
 - slug: injecao-de-sql
-  order: 3
   title: A busca que apagou a tabela
-  section: seguranca
   difficulty: medio
-  topics: [Boas práticas de segurança]
   statement: |
     O site monta esta busca juntando textos, com o que o visitante digitou:
 
@@ -76,11 +67,8 @@
   traps: []
 
 - slug: procedure-ou-funcao
-  order: 1
   title: Procedure ou função?
-  section: procedures
   difficulty: medio
-  topics: [Stored procedures e funções]
   statement: |
     O SQLite não tem stored procedures, então este problema usa o PostgreSQL como referência. Você precisa de duas coisas:
 
@@ -103,11 +91,8 @@
   traps: []
 
 - slug: sql-dinamico
-  order: 2
   title: Ordenar pela coluna escolhida
-  section: procedures
   difficulty: dificil
-  topics: [SQL dinâmico]
   statement: |
     O site deixa o visitante escolher a coluna de ordenação da agenda. Parâmetros não servem para nomes de coluna, então é preciso montar o SQL dinamicamente.
 

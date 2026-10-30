@@ -20,14 +20,12 @@ Cada envio roda em um banco novo, dentro de um Web Worker com limite de 4 segund
 
 ## Adicionar um problema
 
-Crie um arquivo em `content/problems/`, com um problema ou uma lista deles. A posição na trilha vem da seção e, dentro dela, de `order`. Campos:
+Crie um arquivo em `content/problems/`, com um problema ou uma lista deles. Depois, adicione o `slug` ao subtópico certo em `content/roadmap.yaml`. É esse arquivo que define a hierarquia, a ordem e as etiquetas de cada problema, e um problema pode aparecer em vários subtópicos. Campos:
 
 | Campo | Uso |
 |---|---|
-| `slug`, `order`, `title` | Identificação e posição |
-| `section` | ID de uma seção de `content/roadmap.yaml` |
+| `slug`, `title` | Identificação |
 | `difficulty` | `facil`, `medio` ou `dificil` |
-| `topics` | Tópicos. Escreva `'NULL'` entre aspas |
 | `statement` | Enunciado. Aceita `código` inline |
 | `ordered` | Se a ordem das linhas é corrigida |
 | `check` | Opcional. Consulta que confere o banco depois do comando do aluno. Use em INSERT, UPDATE, DELETE e DDL |
@@ -39,7 +37,7 @@ Crie um arquivo em `content/problems/`, com um problema ou uma lista deles. A po
 | `hints`, `explanation` | Dicas progressivas e solução comentada |
 | `traps` | Respostas erradas comuns que o corretor precisa reprovar |
 
-`npm test` valida cada problema: a solução passa, a ordem esperada é determinística e toda armadilha é reprovada. Uma armadilha aprovada indica que falta um caso de borda em `hidden.sql`. O teste também falha se algum tópico da lista `ROADMAP_TOPICS` ficar sem problema.
+`npm test` valida cada problema: a solução passa, a ordem esperada é determinística e toda armadilha é reprovada. Uma armadilha aprovada indica que falta um caso de borda em `hidden.sql`. O teste também falha se um problema ficar fora da trilha ou se um tópico ou subtópico ficar sem problema.
 
 ## Limitações conhecidas
 
@@ -50,4 +48,4 @@ Crie um arquivo em `content/problems/`, com um problema ou uma lista deles. A po
 
 ## Conteúdo e licença
 
-A licença do [roadmap.sh](https://roadmap.sh/sql) permite só uso pessoal do conteúdo e compartilhamento de links. Por isso, este projeto usa apenas nomes genéricos de tópicos e link para o site. Enunciados, dados e explicações são originais. Não copie textos nem imagens do roadmap.sh, nem de sites que ele indica. Antes de publicar, confirme com o autor ou com um advogado o uso da marca e da estrutura da trilha.
+A licença do [roadmap.sh](https://roadmap.sh/sql) permite só uso pessoal do conteúdo e compartilhamento de links. Este projeto reproduz os nomes e a organização dos tópicos e subtópicos do roadmap de SQL, com crédito e link. Enunciados, dados e explicações são originais. Reproduzir a organização pode exigir autorização, então confirme com o autor antes de divulgar o projeto. Não copie textos nem imagens do roadmap.sh, nem de sites que ele indica.

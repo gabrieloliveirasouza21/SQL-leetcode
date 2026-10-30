@@ -1,9 +1,6 @@
 - slug: novo-palco
-  order: 3
   title: Um novo palco em Fortaleza
-  section: manipulacao
   difficulty: facil
-  topics: [INSERT]
   statement: |
     O festival fechou com uma casa nova: `Estação Norte`, em `Fortaleza`, com capacidade para 4200 pessoas.
 
@@ -24,11 +21,8 @@
       sql: INSERT INTO venues (name, city, capacity) VALUES ('Fortaleza', 'Estação Norte', 4200);
 
 - slug: limpar-cancelados
-  order: 6
   title: Faxina nos cancelados
-  section: manipulacao
   difficulty: facil
-  topics: [DELETE]
   statement: |
     Os pedidos com `status` igual a `cancelado` podem sair do sistema. Reservas continuam, porque ainda podem virar venda.
 
@@ -49,11 +43,8 @@
       sql: DELETE FROM tickets WHERE status <> 'pago';
 
 - slug: tabela-de-patrocinadores
-  order: 1
   title: A tabela de patrocinadores
-  section: ddl
   difficulty: facil
-  topics: [CREATE TABLE, Tipos de dados]
   statement: |
     Crie a tabela `sponsors` com estas colunas, nesta ordem:
 
@@ -81,11 +72,8 @@
       sql: CREATE TABLE sponsors (id INTEGER PRIMARY KEY, name TEXT NOT NULL, budget REAL NOT NULL, active INTEGER NOT NULL);
 
 - slug: coluna-headliner
-  order: 2
   title: Marcando as atrações principais
-  section: ddl
   difficulty: facil
-  topics: [ALTER TABLE]
   statement: |
     A tabela `bands` já tem dados e precisa de uma coluna nova: `headliner`, inteira, obrigatória, com valor padrão 0.
 
@@ -107,11 +95,8 @@
       sql: ALTER TABLE bands ADD COLUMN headliner INTEGER DEFAULT 0;
 
 - slug: adeus-checkins
-  order: 3
   title: Apagando a tabela de entradas
-  section: ddl
   difficulty: facil
-  topics: [DROP TABLE]
   statement: |
     O sistema de catracas foi substituído, e a tabela `checkins` não será mais usada.
 
@@ -131,11 +116,8 @@
       sql: DROP TABLE merch;
 
 - slug: esvaziar-checkins
-  order: 4
   title: Zerar para o próximo festival
-  section: ddl
   difficulty: facil
-  topics: [TRUNCATE TABLE]
   statement: |
     A tabela `checkins` precisa ficar vazia para o próximo festival, mas a estrutura deve continuar lá.
 

@@ -1,9 +1,6 @@
 - slug: view-da-agenda
-  order: 1
   title: Uma consulta com nome
-  section: views
   difficulty: facil
-  topics: [Criar views]
   statement: |
     Três telas do site repetem o mesmo JOIN da agenda. Crie a view `agenda` com as colunas `banda`, `cidade` e `data`, que trazem o nome da banda, a cidade da casa e a data de cada show.
   ordered: true
@@ -26,11 +23,8 @@
       sql: CREATE VIEW agenda AS SELECT b.name, v.city, s.show_date FROM shows s JOIN bands b ON b.id = s.band_id JOIN venues v ON v.id = s.venue_id;
 
 - slug: alterar-view
-  order: 2
   title: A view precisa do preço
-  section: views
   difficulty: medio
-  topics: [Alterar views]
   statement: |
     O banco já tem esta view:
 
@@ -57,11 +51,8 @@
       sql: DROP VIEW agenda_curta; CREATE VIEW agenda_curta AS SELECT band_id, show_date FROM shows;
 
 - slug: apagar-view
-  order: 3
   title: Aposentando um relatório
-  section: views
   difficulty: facil
-  topics: [Apagar views]
   statement: |
     O relatório da view `vendas_resumo` foi descontinuado. Remova a view sem afetar a tabela `tickets`, na qual ela se baseia.
   ordered: true
@@ -80,11 +71,8 @@
       sql: DROP TABLE vendas_resumo;
 
 - slug: indice-da-agenda
-  order: 1
   title: A página da banda está lenta
-  section: indices
   difficulty: medio
-  topics: [Usar índices]
   statement: |
     A página de cada banda roda esta consulta milhares de vezes por minuto, e a tabela `shows` cresceu:
 
@@ -106,11 +94,8 @@
       sql: CREATE INDEX i ON shows (band_id);
 
 - slug: trocar-indice
-  order: 2
   title: Trocar um índice que não ajuda
-  section: indices
   difficulty: medio
-  topics: [Gerenciar índices]
   statement: |
     O índice `idx_tickets_buyer` nunca é usado e deixa cada venda um pouco mais lenta. O relatório principal filtra por show e status.
 

@@ -1,9 +1,6 @@
 slug: ingresso-mais-caro
-order: 12
 title: O ingresso mais caro de cada banda
-section: avancado
 difficulty: dificil
-topics: [Window functions, RANK, DENSE_RANK]
 statement: |
   Para a página de cada banda, queremos destacar seu show com o ingresso mais caro. Se dois shows empatarem no maior preço, os dois aparecem.
 

@@ -1,27 +1,10 @@
 import initSqlJs, { type SqlJsStatic } from 'sql.js';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { dataset, problems, sections } from '../src/content';
+import { dataset, problems, topicProblemSlugs, topics } from '../src/content';
 import { expectedOnSample, judge } from '../src/judge/judge';
 
 const sqlProblems = problems.filter((p) => !p.options);
 const quizzes = problems.filter((p) => p.options);
-
-// Tópicos do roadmap de SQL que a trilha precisa cobrir.
-const ROADMAP_TOPICS = [
-  'Bancos relacionais', 'Tabelas', 'Linhas', 'Colunas', 'Benefícios e limitações do RDBMS', 'SQL vs NoSQL',
-  'Palavras-chave SQL', 'Tipos de dados', 'Operadores', 'SELECT', 'FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'HAVING',
-  'INSERT', 'UPDATE', 'DELETE', 'CREATE TABLE', 'ALTER TABLE', 'DROP TABLE', 'TRUNCATE TABLE',
-  'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'PRIMARY KEY', 'FOREIGN KEY', 'UNIQUE', 'NOT NULL', 'CHECK',
-  'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL OUTER JOIN', 'SELF JOIN', 'CROSS JOIN',
-  'Subquery escalar', 'Subquery de coluna', 'Subquery de linha', 'Subquery de tabela', 'Subquery aninhada', 'Subquery correlacionada',
-  'ABS', 'ROUND', 'MOD', 'CEILING', 'FLOOR', 'CASE', 'NULLIF', 'COALESCE',
-  'CONCAT', 'LENGTH', 'SUBSTRING', 'REPLACE', 'UPPER', 'LOWER', 'DATE', 'TIME', 'TIMESTAMP', 'DATEPART', 'DATEADD',
-  'Criar views', 'Alterar views', 'Apagar views', 'Usar índices', 'Gerenciar índices',
-  'BEGIN', 'COMMIT', 'ROLLBACK', 'SAVEPOINT', 'ACID', 'Níveis de isolamento',
-  'Integridade de dados', 'GRANT e REVOKE', 'Boas práticas de segurança', 'Stored procedures e funções', 'SQL dinâmico',
-  'Análise de consultas', 'Reduzir subqueries', 'Otimizar joins', 'Projeção seletiva',
-  'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LEAD', 'LAG', 'CTE', 'CTE recursiva', 'PIVOT e UNPIVOT',
-];
 
 let SQL: SqlJsStatic;
 beforeAll(async () => {
@@ -29,21 +12,27 @@ beforeAll(async () => {
 });
 
 describe('conteúdo', () => {
-  it('toda seção conhecida e slug único', () => {
-    const ids = new Set(sections.map((s) => s.id));
-    for (const p of problems) expect(ids.has(p.section), p.slug).toBe(true);
+  it('slug único', () => {
     expect(new Set(problems.map((p) => p.slug)).size).toBe(problems.length);
-    // YAML lê NULL sem aspas como nulo, e o chip do tópico sai vazio.
-    for (const p of problems) expect(p.topics.every((t) => typeof t === 'string'), p.slug).toBe(true);
   });
 
-  it('toda seção tem problema', () => {
-    for (const s of sections) expect(problems.some((p) => p.section === s.id), s.id).toBe(true);
+  it('todo problema está na trilha e toda referência existe', () => {
+    const known = new Set(problems.map((p) => p.slug));
+    const placed = new Set(topics.flatMap(topicProblemSlugs));
+    expect(problems.filter((p) => !placed.has(p.slug)).map((p) => p.slug)).toEqual([]);
+    expect([...placed].filter((slug) => !known.has(slug))).toEqual([]);
   });
 
-  it('cobre todos os tópicos do roadmap', () => {
-    const covered = new Set(problems.flatMap((p) => p.topics));
-    expect(ROADMAP_TOPICS.filter((topic) => !covered.has(topic))).toEqual([]);
+  it('todo tópico e subtópico tem problema', () => {
+    for (const topic of topics) {
+      expect(topicProblemSlugs(topic).length, topic.title).toBeGreaterThan(0);
+      for (const subtopic of topic.subtopics) expect(subtopic.problems.length, subtopic.name).toBeGreaterThan(0);
+    }
+  });
+
+  it('mantém os 16 tópicos e 97 subtópicos do roadmap', () => {
+    expect(topics.length).toBe(16);
+    expect(topics.flatMap((t) => t.subtopics).length).toBe(97);
   });
 
   describe.each(quizzes.map((p) => [p.slug, p] as const))('quiz %s', (_slug, quiz) => {

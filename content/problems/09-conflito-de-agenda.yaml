@@ -1,9 +1,6 @@
 slug: conflito-de-agenda
-order: 9
 title: Dois palcos no mesmo dia
-section: joins
 difficulty: medio
-topics: [SELF JOIN]
 statement: |
   Um erro de agendamento colocou algumas bandas em mais de um show na mesma data.
 

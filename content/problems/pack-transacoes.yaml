@@ -1,9 +1,6 @@
 - slug: anexo-da-arena
-  order: 1
   title: Tudo ou nada
-  section: transacoes
   difficulty: medio
-  topics: [BEGIN, COMMIT]
   statement: |
     A `Arena Tupi` cedeu 500 lugares para uma casa nova, `Anexo Tupi`, em `São Paulo`, com capacidade 500.
 
@@ -29,11 +26,8 @@
       sql: BEGIN; UPDATE venues SET capacity = capacity - 500 WHERE name = 'Arena Tupi'; COMMIT;
 
 - slug: ensaio-da-faxina
-  order: 2
   title: Ensaio sem consequência
-  section: transacoes
   difficulty: facil
-  topics: [ROLLBACK]
   statement: |
     Antes de rodar uma limpeza em produção, você quer ver o efeito dela sem correr risco.
 
@@ -57,11 +51,8 @@
       sql: BEGIN; ROLLBACK; DELETE FROM checkins;
 
 - slug: ponto-de-salvamento
-  order: 3
   title: Desfazer só a metade
-  section: transacoes
   difficulty: medio
-  topics: [SAVEPOINT]
   statement: |
     Em uma transação, faça nesta ordem:
 
@@ -89,11 +80,8 @@
       sql: BEGIN; SAVEPOINT s; UPDATE venues SET capacity = 15000 WHERE name = 'Arena Tupi'; DELETE FROM merch; ROLLBACK TO s; COMMIT;
 
 - slug: acid-na-pratica
-  order: 4
   title: A queda de energia
-  section: transacoes
   difficulty: medio
-  topics: [ACID]
   statement: |
     O banco confirmou o COMMIT de uma venda, e o cliente recebeu a mensagem de sucesso. Um segundo depois, acaba a luz no servidor. Quando ele volta, a venda continua lá.
 
@@ -114,11 +102,8 @@
   traps: []
 
 - slug: niveis-de-isolamento
-  order: 5
   title: O ingresso que nunca existiu
-  section: transacoes
   difficulty: dificil
-  topics: [Níveis de isolamento]
   statement: |
     A transação A reduz o estoque de ingressos, mas ainda não fez COMMIT. A transação B lê o estoque já reduzido e mostra “esgotado” a um cliente. Em seguida, A faz ROLLBACK.
 

@@ -15,11 +15,8 @@ export interface QuizOption {
 
 export interface Problem extends JudgedProblem {
   slug: string;
-  order: number;
   title: string;
-  section: string;
   difficulty: Difficulty;
-  topics: string[];
   statement: string;
   hints: string[];
   explanation: string;
@@ -29,11 +26,21 @@ export interface Problem extends JudgedProblem {
   answer?: number;
 }
 
-export interface Section {
+export interface Subtopic {
+  name: string;
+  /** Agrupador do roadmap, como Numeric Functions. */
+  group?: string;
+  problems: string[];
+}
+
+export interface Topic {
   id: string;
   title: string;
   summary: string;
   study: { label: string; url: string }[];
+  /** Problemas ligados direto ao tópico, quando ele não tem subtópicos. */
+  problems?: string[];
+  subtopics: Subtopic[];
 }
 
 const files = import.meta.glob<string>('../content/problems/*.yaml', {
@@ -42,13 +49,31 @@ const files = import.meta.glob<string>('../content/problems/*.yaml', {
   eager: true,
 });
 
-export const sections: Section[] = (parse(roadmapRaw) as { sections: Section[] }).sections;
+export const topics: Topic[] = (parse(roadmapRaw) as { topics: Topic[] }).topics;
 
-const sectionRank = new Map(sections.map((section, index) => [section.id, index]));
+/** Todos os problemas de um tópico, sem repetir. */
+export function topicProblemSlugs(topic: Topic): string[] {
+  return [...new Set([...(topic.problems ?? []), ...topic.subtopics.flatMap((s) => s.problems)])];
+}
 
-// Um arquivo pode trazer um problema ou uma lista deles.
+const roadmapOrder = [...new Set(topics.flatMap(topicProblemSlugs))];
+
+// Um arquivo pode trazer um problema ou uma lista deles. Problema fora do roadmap vai para o fim.
+const rank = (slug: string) => {
+  const index = roadmapOrder.indexOf(slug);
+  return index === -1 ? roadmapOrder.length : index;
+};
+
 export const problems: Problem[] = Object.values(files)
   .flatMap((raw) => parse(raw) as Problem | Problem[])
-  .sort((a, b) => (sectionRank.get(a.section) ?? 0) - (sectionRank.get(b.section) ?? 0) || a.order - b.order);
+  .sort((a, b) => rank(a.slug) - rank(b.slug));
+
+/** Tópico em que o problema aparece primeiro. */
+export const topicOf = (slug: string) => topics.find((topic) => topicProblemSlugs(topic).includes(slug));
+
+/** Nomes dos subtópicos em que o problema aparece. */
+export function subtopicNames(slug: string): string[] {
+  return [...new Set(topics.flatMap((topic) => topic.subtopics.filter((s) => s.problems.includes(slug)).map((s) => s.name)))];
+}
 
 export const dataset = { schema, sample, hidden };

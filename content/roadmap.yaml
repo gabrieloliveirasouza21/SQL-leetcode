@@ -1,20 +1,49 @@
+# Hierarquia da trilha. Nomes de tópicos e subtópicos seguem https://roadmap.sh/sql.
+# Um problema pode aparecer em mais de um subtópico. A primeira aparição define a ordem.
 title: SQL
-sections:
-  - id: conceitos
-    title: Conceitos de banco relacional
+topics:
+  - id: learn-the-basics
+    title: Learn the Basics
     summary: O que é um banco relacional, o que ele faz bem e quando outra ferramenta serve melhor.
     study:
       - label: Quando usar SQLite e quando não usar
         url: https://www.sqlite.org/whentouse.html
-  - id: fundamentos
-    title: Fundamentos
-    summary: Ler dados, filtrar e ordenar. E entender por que NULL não é um valor.
+    subtopics:
+      - { name: What are Relational Databases?, problems: [por-que-relacional] }
+      - { name: RDBMS Benefits and Limitations, problems: [forcas-e-limites-do-rdbms] }
+      - { name: SQL vs NoSQL Databases, problems: [sql-ou-nosql] }
+  - id: basic-sql-syntax
+    title: Basic SQL Syntax
+    summary: As peças da linguagem e os quatro comandos mais usados.
     study:
       - label: SELECT na documentação do SQLite
         url: https://www.sqlite.org/lang_select.html
-  - id: manipulacao
-    title: Alterar dados
-    summary: Inserir, atualizar e apagar sem destruir o que não devia ser tocado.
+      - label: Tipos de dados no SQLite
+        url: https://www.sqlite.org/datatype3.html
+    subtopics:
+      - { name: SQL Keywords, problems: [ordem-de-execucao] }
+      - { name: Data Types, problems: [tabela-de-patrocinadores] }
+      - { name: Operators, problems: [thrash-ou-doom] }
+      - { group: Statements, name: SELECT, problems: [paises-representados] }
+      - { group: Statements, name: INSERT, problems: [novo-palco] }
+      - { group: Statements, name: UPDATE, problems: [reforma-da-arena] }
+      - { group: Statements, name: DELETE, problems: [limpar-cancelados] }
+  - id: ddl
+    title: Data Definition Language (DDL)
+    summary: Definir a estrutura do banco e mudá-la depois que ele já tem dados.
+    study:
+      - label: CREATE TABLE
+        url: https://www.sqlite.org/lang_createtable.html
+      - label: ALTER TABLE
+        url: https://www.sqlite.org/lang_altertable.html
+    subtopics:
+      - { name: Create Table, problems: [tabela-de-patrocinadores] }
+      - { name: Alter Table, problems: [coluna-headliner] }
+      - { name: Truncate Table, problems: [esvaziar-checkins] }
+      - { name: Drop Table, problems: [adeus-checkins] }
+  - id: dml
+    title: Data Manipulation Language (DML)
+    summary: Ler, filtrar e ordenar dados, e alterá-los sem destruir o que não devia ser tocado.
     study:
       - label: INSERT
         url: https://www.sqlite.org/lang_insert.html
@@ -22,97 +51,182 @@ sections:
         url: https://www.sqlite.org/lang_update.html
       - label: DELETE
         url: https://www.sqlite.org/lang_delete.html
-  - id: ddl
-    title: Criar e alterar tabelas
-    summary: Definir a estrutura do banco e mudá-la depois que ele já tem dados.
-    study:
-      - label: CREATE TABLE
-        url: https://www.sqlite.org/lang_createtable.html
-      - label: ALTER TABLE
-        url: https://www.sqlite.org/lang_altertable.html
-      - label: Tipos de dados no SQLite
-        url: https://www.sqlite.org/datatype3.html
-  - id: agregacao
-    title: Agregação
+    subtopics:
+      - { name: Select, problems: [paises-representados] }
+      - { name: FROM, problems: [ordem-de-execucao, agenda-2026] }
+      - { name: WHERE, problems: [veteranas-na-ativa] }
+      - { name: ORDER BY, problems: [bandas-brasileiras] }
+      - { name: GROUP BY, problems: [generos-em-alta] }
+      - { name: HAVING, problems: [generos-em-alta] }
+      - { name: JOINs, problems: [agenda-2026] }
+      - { name: INSERT, problems: [novo-palco] }
+      - { name: UPDATE, problems: [reforma-da-arena] }
+      - { name: DELETE, problems: [limpar-cancelados] }
+  - id: aggregate-queries
+    title: Aggregate Queries
     summary: Transformar muitas linhas em poucas respostas.
     study:
       - label: Funções de agregação
         url: https://www.sqlite.org/lang_aggfunc.html
-  - id: restricoes
-    title: Restrições
+    subtopics:
+      - { name: SUM, problems: [ingressos-pagos] }
+      - { name: COUNT, problems: [contatos-com-telefone] }
+      - { name: AVG, problems: [extremos-de-preco] }
+      - { name: MIN, problems: [extremos-de-preco] }
+      - { name: MAX, problems: [extremos-de-preco] }
+      - { name: GROUP BY, problems: [generos-em-alta, extremos-de-preco] }
+      - { name: HAVING, problems: [generos-em-alta] }
+  - id: data-constraints
+    title: Data Constraints
     summary: Fazer o próprio banco recusar dados errados.
     study:
       - label: Restrições em CREATE TABLE
         url: https://www.sqlite.org/lang_createtable.html
       - label: Chaves estrangeiras
         url: https://www.sqlite.org/foreignkeys.html
-  - id: joins
-    title: Joins
+    subtopics:
+      - { name: Primary Key, problems: [credenciais] }
+      - { name: Foreign Key, problems: [setlist-de-verdade] }
+      - { name: Unique, problems: [credenciais] }
+      - { name: NOT NULL, problems: [credenciais, limite-de-desconto] }
+      - { name: CHECK, problems: [limite-de-desconto] }
+  - id: join-queries
+    title: JOIN Queries
     summary: Cruzar tabelas e decidir o que acontece com quem não tem par.
     study:
       - label: Joins em SELECT
         url: https://www.sqlite.org/lang_select.html
+    subtopics:
+      - { name: INNER JOIN, problems: [agenda-2026] }
+      - { name: LEFT JOIN, problems: [bandas-sem-show, vendas-por-show] }
+      - { name: RIGHT JOIN, problems: [vitrine-de-produtos] }
+      - { name: FULL OUTER JOIN, problems: [sem-par-dos-dois-lados] }
+      - { name: Self Join, problems: [conflito-de-agenda] }
+      - { name: Cross Join, problems: [grade-de-possibilidades] }
   - id: subqueries
     title: Subqueries
     summary: Perguntas dentro de perguntas, com um valor, uma lista, uma linha ou uma tabela.
     study:
       - label: Expressões e subqueries
         url: https://www.sqlite.org/lang_expr.html
-  - id: funcoes
-    title: Funções
+    subtopics:
+      - { group: Different Types, name: Scalar, problems: [distancia-da-media] }
+      - { group: Different Types, name: Column, problems: [quem-tocou-na-arena] }
+      - { group: Different Types, name: Row, problems: [mesma-banda-mesmo-preco] }
+      - { group: Different Types, name: Table, problems: [media-de-publico] }
+      - { name: Nested Subqueries, problems: [quem-tocou-na-arena] }
+      - { name: Correlated Subqueries, problems: [acima-da-media] }
+  - id: advanced-functions
+    title: Advanced Functions
     summary: Calcular, limpar textos, tratar nulos e trabalhar com datas.
     study:
-      - label: Funções matemáticas
-        url: https://www.sqlite.org/lang_mathfunc.html
       - label: Funções de texto e nulos
         url: https://www.sqlite.org/lang_corefunc.html
       - label: Funções de data e hora
         url: https://www.sqlite.org/lang_datefunc.html
+    subtopics:
+      - { group: Numeric Functions, name: FLOOR, problems: [preco-de-etiqueta] }
+      - { group: Numeric Functions, name: ABS, problems: [caixas-de-reposicao] }
+      - { group: Numeric Functions, name: MOD, problems: [caixas-de-reposicao] }
+      - { group: Numeric Functions, name: ROUND, problems: [preco-de-etiqueta] }
+      - { group: Numeric Functions, name: CEILING, problems: [preco-de-etiqueta] }
+      - { group: String Functions, name: CONCAT, problems: [crachas-da-imprensa] }
+      - { group: String Functions, name: LENGTH, problems: [crachas-da-imprensa] }
+      - { group: String Functions, name: SUBSTRING, problems: [dominios-da-imprensa] }
+      - { group: String Functions, name: REPLACE, problems: [crachas-da-imprensa] }
+      - { group: String Functions, name: UPPER, problems: [crachas-da-imprensa] }
+      - { group: String Functions, name: LOWER, problems: [dominios-da-imprensa] }
+      - { group: Conditional, name: CASE, problems: [faixas-de-preco] }
+      - { group: Conditional, name: NULLIF, problems: [veiculo-independente] }
+      - { group: Conditional, name: COALESCE, problems: [veiculo-independente, vendas-por-show] }
+      - { group: Date and Time, name: DATE, problems: [primeira-entrada-do-dia] }
+      - { group: Date and Time, name: TIME, problems: [primeira-entrada-do-dia] }
+      - { group: Date and Time, name: TIMESTAMP, problems: [pico-de-entrada, primeira-entrada-do-dia] }
+      - { group: Date and Time, name: DATEPART, problems: [pico-de-entrada] }
+      - { group: Date and Time, name: DATEADD, problems: [lembrete-de-show] }
   - id: views
     title: Views
     summary: Dar nome a uma consulta e reaproveitá-la como se fosse uma tabela.
     study:
       - label: CREATE VIEW
         url: https://www.sqlite.org/lang_createview.html
-  - id: indices
-    title: Índices
+    subtopics:
+      - { name: Creating Views, problems: [view-da-agenda] }
+      - { name: Modifying Views, problems: [alterar-view] }
+      - { name: Dropping Views, problems: [apagar-view] }
+  - id: indexes
+    title: Indexes
     summary: Deixar consultas rápidas sem mudar o que elas respondem.
     study:
       - label: CREATE INDEX
         url: https://www.sqlite.org/lang_createindex.html
       - label: Como o planejador usa índices
         url: https://www.sqlite.org/queryplanner.html
-  - id: transacoes
-    title: Transações
+    subtopics:
+      - { name: Managing Indexes, problems: [trocar-indice] }
+      - { name: Query Optimization, problems: [indice-da-agenda] }
+  - id: transactions
+    title: Transactions
     summary: Agrupar comandos para que todos aconteçam ou nenhum aconteça.
     study:
       - label: Transações
         url: https://www.sqlite.org/lang_transaction.html
       - label: SAVEPOINT
         url: https://www.sqlite.org/lang_savepoint.html
-  - id: seguranca
-    title: Integridade e segurança
+    subtopics:
+      - { name: BEGIN, problems: [anexo-da-arena, ensaio-da-faxina] }
+      - { name: COMMIT, problems: [anexo-da-arena, ponto-de-salvamento] }
+      - { name: ROLLBACK, problems: [ensaio-da-faxina] }
+      - { name: SAVEPOINT, problems: [ponto-de-salvamento] }
+      - { name: ACID, problems: [acid-na-pratica] }
+      - { name: Transaction Isolation Levels, problems: [niveis-de-isolamento] }
+  - id: data-integrity-security
+    title: Data Integrity & Security
     summary: Quem pode fazer o quê, e como impedir que uma entrada vire um comando.
     study:
       - label: GRANT no PostgreSQL
         url: https://www.postgresql.org/docs/current/sql-grant.html
-  - id: procedures
-    title: Procedures e SQL dinâmico
-    summary: Guardar lógica no banco e montar comandos em tempo de execução.
+    subtopics:
+      - { name: Data Integrity Constraints, problems: [integridade-no-banco] }
+      - { name: GRANT and Revoke, problems: [grant-e-revoke] }
+      - { name: DB Security Best Practices, problems: [injecao-de-sql] }
+  - id: stored-procedures
+    title: Stored Procedures & Functions
+    summary: Guardar lógica no banco, com as vantagens e os custos disso.
     study:
       - label: CREATE PROCEDURE no PostgreSQL
         url: https://www.postgresql.org/docs/current/sql-createprocedure.html
-  - id: performance
-    title: Performance
+    problems: [procedure-ou-funcao]
+    subtopics: []
+  - id: performance-optimization
+    title: Performance Optimization
     summary: Ler o plano de execução e escrever consultas que pedem menos do banco.
     study:
       - label: EXPLAIN QUERY PLAN
         url: https://www.sqlite.org/eqp.html
-  - id: avancado
-    title: Window functions e CTEs
+    subtopics:
+      - { name: Query Analysis Techniques, problems: [lendo-o-plano] }
+      - { group: Query Optimization Techniques, name: Using Indexes, problems: [indice-da-agenda] }
+      - { group: Query Optimization Techniques, name: Optimizing Joins, problems: [otimizar-join] }
+      - { group: Query Optimization Techniques, name: Reducing Subqueries, problems: [menos-subqueries] }
+      - { group: Query Optimization Techniques, name: Selective Projection, problems: [so-o-necessario] }
+  - id: advanced-sql
+    title: Advanced SQL
     summary: Comparar linhas entre si sem perder o detalhe, percorrer hierarquias e girar tabelas.
     study:
       - label: Window functions
         url: https://www.sqlite.org/windowfunctions.html
       - label: Cláusula WITH e CTEs recursivas
         url: https://www.sqlite.org/lang_with.html
+    subtopics:
+      - { name: Recursive Queries, problems: [linhagem-de-mentores] }
+      - { name: Pivot / Unpivot Operations, problems: [pedidos-por-status, contatos-em-linhas] }
+      - { name: Common Table Expressions, problems: [evolucao-de-publico] }
+      - { name: Dynamic SQL, problems: [sql-dinamico] }
+      - { name: Window Functions, problems: [numerando-os-shows, ingresso-mais-caro] }
+      - { group: Window Functions, name: row_number, problems: [numerando-os-shows] }
+      - { group: Window Functions, name: rank, problems: [ingresso-mais-caro] }
+      - { group: Window Functions, name: dense_rank, problems: [ranking-de-precos] }
+      - { group: Window Functions, name: lead, problems: [proximo-show] }
+      - { group: Window Functions, name: lag, problems: [evolucao-de-publico] }
+      - { group: Window Functions, name: first_value, problems: [primeiro-show-da-banda] }

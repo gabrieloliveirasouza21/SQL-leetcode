@@ -1,9 +1,6 @@
 slug: acima-da-media
-order: 10
 title: Caro para os próprios padrões
-section: subqueries
 difficulty: medio
-topics: [Subquery correlacionada, AVG]
 statement: |
   Um ingresso de 180 pode ser barato para uma banda e caríssimo para outra. A equipe quer achar os shows mais caros que a média da própria banda.
 

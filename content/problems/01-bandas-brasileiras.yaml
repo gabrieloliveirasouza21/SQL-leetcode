@@ -1,9 +1,6 @@
 slug: bandas-brasileiras
-order: 1
 title: A cena nacional
-section: fundamentos
 difficulty: facil
-topics: [SELECT, WHERE, ORDER BY]
 statement: |
   A curadoria do festival quer abrir a programação pelas bandas nacionais, das mais antigas para as mais novas.
 

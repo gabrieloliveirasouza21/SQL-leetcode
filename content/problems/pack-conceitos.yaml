@@ -1,9 +1,6 @@
 - slug: por-que-relacional
-  order: 1
   title: O nome da banda mudou
-  section: conceitos
   difficulty: facil
-  topics: [Bancos relacionais, Tabelas, Linhas, Colunas]
   statement: |
     A tabela `shows` guarda `band_id`, não o nome da banda. Cada linha de `shows` aponta para uma linha de `bands`.
 
@@ -24,11 +21,8 @@
   traps: []
 
 - slug: forcas-e-limites-do-rdbms
-  order: 2
   title: Onde o relacional brilha
-  section: conceitos
   difficulty: facil
-  topics: [Benefícios e limitações do RDBMS]
   statement: |
     O festival tem dois sistemas novos. O primeiro vende ingressos e não pode vender o mesmo lugar duas vezes. O segundo recebe 200 mil leituras por segundo dos sensores das catracas, e cada modelo de sensor manda campos diferentes.
 
@@ -49,11 +43,8 @@
   traps: []
 
 - slug: sql-ou-nosql
-  order: 3
   title: SQL ou NoSQL?
-  section: conceitos
   difficulty: facil
-  topics: [SQL vs NoSQL]
   statement: |
     O site do festival vai guardar o carrinho de compras temporário de cada visitante. O acesso é sempre pela chave do visitante, e o conteúdo expira em 30 minutos. Nunca há consulta entre carrinhos.
 

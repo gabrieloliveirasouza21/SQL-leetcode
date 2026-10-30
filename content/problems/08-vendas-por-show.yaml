@@ -1,9 +1,6 @@
 slug: vendas-por-show
-order: 8
 title: O show que não vendeu nada
-section: joins
 difficulty: medio
-topics: [LEFT JOIN, GROUP BY, COALESCE]
 statement: |
   A produção quer um relatório de vendas com todos os shows, inclusive os que não venderam nada. Esses são os mais importantes, porque precisam de divulgação.
 

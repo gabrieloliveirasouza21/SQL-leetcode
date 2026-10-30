@@ -1,9 +1,6 @@
 slug: faixas-de-preco
-order: 11
 title: Faixas de preço
-section: funcoes
 difficulty: medio
-topics: [CASE, GROUP BY]
 statement: |
   O marketing divide os shows em três faixas de `ticket_price`:
 
