@@ -20,7 +20,7 @@ Cada envio roda em um banco novo, dentro de um Web Worker com limite de 4 segund
 
 ## Adicionar um problema
 
-Crie um arquivo em `content/problems/`. Campos:
+Crie um arquivo em `content/problems/`, com um problema ou uma lista deles. A posição na trilha vem da seção e, dentro dela, de `order`. Campos:
 
 | Campo | Uso |
 |---|---|
@@ -30,16 +30,21 @@ Crie um arquivo em `content/problems/`. Campos:
 | `topics` | Tópicos. Escreva `'NULL'` entre aspas |
 | `statement` | Enunciado. Aceita `código` inline |
 | `ordered` | Se a ordem das linhas é corrigida |
-| `check` | Opcional. Consulta que confere o banco depois de UPDATE, INSERT ou DELETE |
+| `check` | Opcional. Consulta que confere o banco depois do comando do aluno. Use em INSERT, UPDATE, DELETE e DDL |
+| `setup` | Opcional. SQL aplicado antes do comando do aluno, como uma view que ele vai alterar |
+| `must_use`, `forbid` | Opcional. Termos exigidos ou proibidos no SQL enviado. Comentários e textos entre aspas não contam |
+| `accepts`, `rejects` | Opcional. Comandos que o banco precisa aceitar ou recusar. Use para testar restrições |
+| `options`, `answer` | Só em problemas conceituais. Lista de `text` e `why`, e o índice da resposta certa. Esses problemas não têm `solution` |
 | `solution` | Solução de referência |
 | `hints`, `explanation` | Dicas progressivas e solução comentada |
 | `traps` | Respostas erradas comuns que o corretor precisa reprovar |
 
-`npm test` valida cada problema: a solução passa, a ordem esperada é determinística e toda armadilha é reprovada. Uma armadilha aprovada indica que falta um caso de borda em `hidden.sql`.
+`npm test` valida cada problema: a solução passa, a ordem esperada é determinística e toda armadilha é reprovada. Uma armadilha aprovada indica que falta um caso de borda em `hidden.sql`. O teste também falha se algum tópico da lista `ROADMAP_TOPICS` ficar sem problema.
 
 ## Limitações conhecidas
 
-- **Dialeto:** usa SQLite. Tópicos como `DATEADD`, `DATEPART`, stored procedures e `GRANT` não existem nele e exigiriam PGlite.
+- **Dialeto:** usa SQLite. `DATEADD`, `DATEPART`, `TRUNCATE`, `PIVOT` e `UNPIVOT` são praticados com os equivalentes do SQLite. Stored procedures, SQL dinâmico e `GRANT` não existem nele, então viraram problemas conceituais. Praticar esses tópicos de verdade exigiria PGlite.
+- **Transações:** o corretor confere o estado final e a presença dos comandos, não o efeito de concorrência entre sessões.
 - **Respostas no cliente:** soluções e casos ocultos vão no bundle. Um ranking confiável exigiria correção no servidor.
 - **Progresso:** fica no `localStorage`, sem conta de usuário.
 

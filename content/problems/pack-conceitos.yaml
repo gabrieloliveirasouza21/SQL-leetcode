@@ -1,0 +1,74 @@
+- slug: por-que-relacional
+  order: 1
+  title: O nome da banda mudou
+  section: conceitos
+  difficulty: facil
+  topics: [Bancos relacionais, Tabelas, Linhas, Colunas]
+  statement: |
+    A tabela `shows` guarda `band_id`, não o nome da banda. Cada linha de `shows` aponta para uma linha de `bands`.
+
+    A banda de id 4 troca de nome. O que precisa mudar no banco?
+  options:
+    - text: Só o valor da coluna name em uma linha de bands
+      why: Certo. O nome existe em um único lugar, e todos os shows chegam até ele pela chave.
+    - text: A coluna band_id de todos os shows da banda
+      why: O id não mudou. Ele existe justamente para continuar estável quando o nome muda.
+    - text: Uma linha de bands e também cada linha de shows da banda
+      why: Isso seria necessário se o nome estivesse copiado em shows. Evitar essa cópia é o motivo de separar as tabelas.
+    - text: A estrutura da tabela bands, com um ALTER TABLE
+      why: ALTER TABLE muda colunas, não valores. A troca de um valor em uma linha é um UPDATE.
+  answer: 0
+  hints: []
+  explanation: |
+    Em um banco relacional, cada tabela descreve um tipo de coisa, cada linha é um registro e cada coluna é um atributo. As tabelas se relacionam por chaves, então cada fato fica em um só lugar e não há cópias para manter sincronizadas.
+  traps: []
+
+- slug: forcas-e-limites-do-rdbms
+  order: 2
+  title: Onde o relacional brilha
+  section: conceitos
+  difficulty: facil
+  topics: [Benefícios e limitações do RDBMS]
+  statement: |
+    O festival tem dois sistemas novos. O primeiro vende ingressos e não pode vender o mesmo lugar duas vezes. O segundo recebe 200 mil leituras por segundo dos sensores das catracas, e cada modelo de sensor manda campos diferentes.
+
+    Qual avaliação é a melhor?
+  options:
+    - text: Vendas pedem transações e restrições, e os sensores vão sofrer com esquema rígido e alto volume de escrita
+      why: Certo. Garantias fortes são a força do RDBMS. Esquema fixo e escala horizontal de escrita são os limites mais comuns.
+    - text: Os dois casos são ideais para um banco relacional, porque SQL escala para qualquer volume
+      why: Um banco relacional aguenta muito, mas não qualquer volume. Escalar escrita horizontalmente é um dos pontos difíceis.
+    - text: Os dois casos pedem NoSQL, porque bancos relacionais são lentos
+      why: Bancos relacionais não são lentos por natureza, e vender o mesmo lugar duas vezes é exatamente o erro que transações evitam.
+    - text: Vendas pedem NoSQL, e os sensores pedem relacional por causa do JOIN
+      why: Está invertido. Vendas precisam de consistência forte, e os sensores não precisam de JOIN para gravar leituras.
+  answer: 0
+  hints: []
+  explanation: |
+    RDBMS oferece transações, restrições e consultas flexíveis com SQL. O preço é um esquema definido de antemão e mais dificuldade para distribuir escritas entre várias máquinas.
+  traps: []
+
+- slug: sql-ou-nosql
+  order: 3
+  title: SQL ou NoSQL?
+  section: conceitos
+  difficulty: facil
+  topics: [SQL vs NoSQL]
+  statement: |
+    O site do festival vai guardar o carrinho de compras temporário de cada visitante. O acesso é sempre pela chave do visitante, e o conteúdo expira em 30 minutos. Nunca há consulta entre carrinhos.
+
+    Qual escolha faz mais sentido, e por quê?
+  options:
+    - text: Um banco chave-valor, porque o acesso é sempre por uma chave e os dados são descartáveis
+      why: Certo. O padrão de acesso é simples e não precisa de JOIN nem de garantias duradouras.
+    - text: Um banco relacional, porque NoSQL perde dados
+      why: Bancos NoSQL não perdem dados por definição. A durabilidade depende de produto e configuração.
+    - text: Um banco de grafos, porque um carrinho se liga a produtos
+      why: Grafos servem para consultas que percorrem relações. Aqui o acesso é só pela chave do visitante.
+    - text: Qualquer um, porque a escolha do banco não muda nada
+      why: Muda bastante. O padrão de acesso decide custo, latência e complexidade.
+  answer: 0
+  hints: []
+  explanation: |
+    A pergunta útil não é qual tecnologia é melhor, e sim como os dados serão lidos e gravados. Consultas variadas e consistência forte apontam para SQL. Acesso previsível por chave e dados flexíveis apontam para NoSQL. Muitos sistemas usam os dois.
+  traps: []

@@ -58,6 +58,7 @@ export function RoadmapPage({ solved }: { solved: Set<string> }) {
                             {solved.has(problem.slug) ? '✓' : ''}
                           </span>
                           <span className="problem-title">{problem.title}</span>
+                          {problem.options && <span className="kind">Conceito</span>}
                           <span className={`badge ${problem.difficulty}`}>{DIFFICULTY_LABEL[problem.difficulty]}</span>
                         </a>
                       </li>

@@ -1,23 +1,51 @@
 title: SQL
 sections:
+  - id: conceitos
+    title: Conceitos de banco relacional
+    summary: O que é um banco relacional, o que ele faz bem e quando outra ferramenta serve melhor.
+    study:
+      - label: Quando usar SQLite e quando não usar
+        url: https://www.sqlite.org/whentouse.html
   - id: fundamentos
     title: Fundamentos
     summary: Ler dados, filtrar e ordenar. E entender por que NULL não é um valor.
     study:
       - label: SELECT na documentação do SQLite
         url: https://www.sqlite.org/lang_select.html
+  - id: manipulacao
+    title: Alterar dados
+    summary: Inserir, atualizar e apagar sem destruir o que não devia ser tocado.
+    study:
+      - label: INSERT
+        url: https://www.sqlite.org/lang_insert.html
+      - label: UPDATE
+        url: https://www.sqlite.org/lang_update.html
+      - label: DELETE
+        url: https://www.sqlite.org/lang_delete.html
+  - id: ddl
+    title: Criar e alterar tabelas
+    summary: Definir a estrutura do banco e mudá-la depois que ele já tem dados.
+    study:
+      - label: CREATE TABLE
+        url: https://www.sqlite.org/lang_createtable.html
+      - label: ALTER TABLE
+        url: https://www.sqlite.org/lang_altertable.html
+      - label: Tipos de dados no SQLite
+        url: https://www.sqlite.org/datatype3.html
   - id: agregacao
     title: Agregação
     summary: Transformar muitas linhas em poucas respostas.
     study:
       - label: Funções de agregação
         url: https://www.sqlite.org/lang_aggfunc.html
-  - id: manipulacao
-    title: Alterar dados
-    summary: Mudar o banco sem destruir o que não devia ser tocado.
+  - id: restricoes
+    title: Restrições
+    summary: Fazer o próprio banco recusar dados errados.
     study:
-      - label: UPDATE na documentação do SQLite
-        url: https://www.sqlite.org/lang_update.html
+      - label: Restrições em CREATE TABLE
+        url: https://www.sqlite.org/lang_createtable.html
+      - label: Chaves estrangeiras
+        url: https://www.sqlite.org/foreignkeys.html
   - id: joins
     title: Joins
     summary: Cruzar tabelas e decidir o que acontece com quem não tem par.
@@ -25,14 +53,64 @@ sections:
       - label: Joins em SELECT
         url: https://www.sqlite.org/lang_select.html
   - id: subqueries
-    title: Subqueries e CASE
-    summary: Perguntas dentro de perguntas e regras dentro da query.
+    title: Subqueries
+    summary: Perguntas dentro de perguntas, com um valor, uma lista, uma linha ou uma tabela.
     study:
-      - label: Expressões, CASE e subqueries
+      - label: Expressões e subqueries
         url: https://www.sqlite.org/lang_expr.html
+  - id: funcoes
+    title: Funções
+    summary: Calcular, limpar textos, tratar nulos e trabalhar com datas.
+    study:
+      - label: Funções matemáticas
+        url: https://www.sqlite.org/lang_mathfunc.html
+      - label: Funções de texto e nulos
+        url: https://www.sqlite.org/lang_corefunc.html
+      - label: Funções de data e hora
+        url: https://www.sqlite.org/lang_datefunc.html
+  - id: views
+    title: Views
+    summary: Dar nome a uma consulta e reaproveitá-la como se fosse uma tabela.
+    study:
+      - label: CREATE VIEW
+        url: https://www.sqlite.org/lang_createview.html
+  - id: indices
+    title: Índices
+    summary: Deixar consultas rápidas sem mudar o que elas respondem.
+    study:
+      - label: CREATE INDEX
+        url: https://www.sqlite.org/lang_createindex.html
+      - label: Como o planejador usa índices
+        url: https://www.sqlite.org/queryplanner.html
+  - id: transacoes
+    title: Transações
+    summary: Agrupar comandos para que todos aconteçam ou nenhum aconteça.
+    study:
+      - label: Transações
+        url: https://www.sqlite.org/lang_transaction.html
+      - label: SAVEPOINT
+        url: https://www.sqlite.org/lang_savepoint.html
+  - id: seguranca
+    title: Integridade e segurança
+    summary: Quem pode fazer o quê, e como impedir que uma entrada vire um comando.
+    study:
+      - label: GRANT no PostgreSQL
+        url: https://www.postgresql.org/docs/current/sql-grant.html
+  - id: procedures
+    title: Procedures e SQL dinâmico
+    summary: Guardar lógica no banco e montar comandos em tempo de execução.
+    study:
+      - label: CREATE PROCEDURE no PostgreSQL
+        url: https://www.postgresql.org/docs/current/sql-createprocedure.html
+  - id: performance
+    title: Performance
+    summary: Ler o plano de execução e escrever consultas que pedem menos do banco.
+    study:
+      - label: EXPLAIN QUERY PLAN
+        url: https://www.sqlite.org/eqp.html
   - id: avancado
     title: Window functions e CTEs
-    summary: Comparar linhas entre si sem perder o detalhe e percorrer hierarquias.
+    summary: Comparar linhas entre si sem perder o detalhe, percorrer hierarquias e girar tabelas.
     study:
       - label: Window functions
         url: https://www.sqlite.org/windowfunctions.html

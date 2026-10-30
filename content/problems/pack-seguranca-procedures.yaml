@@ -1,0 +1,128 @@
+- slug: integridade-no-banco
+  order: 1
+  title: Validar no site já não basta?
+  section: seguranca
+  difficulty: facil
+  topics: [Integridade de dados]
+  statement: |
+    O formulário do site já impede desconto acima de 50%. Alguém propõe não criar um `CHECK` no banco, porque seria redundante.
+
+    Qual é o melhor argumento contra essa proposta?
+  options:
+    - text: O site não é o único caminho de escrita, porque scripts, importações e outros sistemas também alteram o banco
+      why: Certo. A restrição no banco vale para todos que escrevem nele, inclusive quem nem sabe que a regra existe.
+    - text: CHECK deixa as consultas mais rápidas
+      why: CHECK é verificado na escrita e não é um recurso para acelerar leituras.
+    - text: Validação no site é uma má prática e deve ser removida
+      why: Validar no site é bom para dar resposta rápida ao usuário. As duas validações se complementam.
+    - text: O banco criptografa as colunas com CHECK
+      why: CHECK não tem relação com criptografia.
+  answer: 0
+  hints: []
+  explanation: |
+    A validação na interface melhora a experiência de uso, enquanto a restrição no banco protege os dados. É a última barreira, e continua valendo quando o código da aplicação muda ou tem bugs.
+  traps: []
+
+- slug: grant-e-revoke
+  order: 2
+  title: O acesso do estagiário
+  section: seguranca
+  difficulty: medio
+  topics: [GRANT e REVOKE]
+  statement: |
+    O SQLite não tem usuários, então este problema usa a sintaxe do PostgreSQL. Uma pessoa estagiária do marketing precisa só consultar a tabela `shows`, usando a conta `estagio`.
+
+    Qual comando segue o princípio do menor privilégio?
+  options:
+    - text: "GRANT SELECT ON shows TO estagio;"
+      why: Certo. Dá só a leitura, e só da tabela necessária.
+    - text: "GRANT ALL ON shows TO estagio;"
+      why: Isso permitiria também alterar e apagar dados, que a pessoa não precisa fazer.
+    - text: "GRANT SELECT ON ALL TABLES IN SCHEMA public TO estagio;"
+      why: Dá leitura de todas as tabelas, incluindo dados pessoais de compradores.
+    - text: "REVOKE SELECT ON shows FROM estagio;"
+      why: REVOKE retira permissão. Esse comando faz o oposto do pedido.
+  answer: 0
+  hints: []
+  explanation: |
+    Menor privilégio significa dar só o necessário. Assim, um erro ou uma senha vazada causam menos dano. Quando a pessoa sair do projeto, `REVOKE SELECT ON shows FROM estagio;` retira o acesso. Em equipes maiores, conceda permissões a papéis, não a pessoas.
+  traps: []
+
+- slug: injecao-de-sql
+  order: 3
+  title: A busca que apagou a tabela
+  section: seguranca
+  difficulty: medio
+  topics: [Boas práticas de segurança]
+  statement: |
+    O site monta esta busca juntando textos, com o que o visitante digitou:
+
+    `"SELECT * FROM bands WHERE name = '" + busca + "'"`
+
+    Alguém digita `'; DROP TABLE bands; --`. Qual é a principal correção?
+  options:
+    - text: Usar consultas parametrizadas, para que a entrada seja tratada sempre como valor
+      why: Certo. Com parâmetros, o texto digitado nunca é interpretado como comando, seja qual for o conteúdo.
+    - text: Recusar buscas que contenham a palavra DROP
+      why: Listas de palavras proibidas são fáceis de contornar e também bloqueiam buscas legítimas.
+    - text: Esconder as mensagens de erro do banco
+      why: Isso é bom, mas só dificulta explorar a falha. A injeção continua possível.
+    - text: Trocar a senha do banco com frequência
+      why: O ataque usa a conexão da própria aplicação, então a senha não entra em jogo.
+  answer: 0
+  hints: []
+  explanation: |
+    Injeção de SQL acontece quando dados viram parte do comando. A defesa principal é usar parâmetros. Além disso, a conta da aplicação não deveria ter permissão de DROP, porque o menor privilégio limita o dano de qualquer falha.
+  traps: []
+
+- slug: procedure-ou-funcao
+  order: 1
+  title: Procedure ou função?
+  section: procedures
+  difficulty: medio
+  topics: [Stored procedures e funções]
+  statement: |
+    O SQLite não tem stored procedures, então este problema usa o PostgreSQL como referência. Você precisa de duas coisas:
+
+    A. Calcular o preço com taxa, para usar dentro de um `SELECT`. B. Encerrar as vendas de um show, o que atualiza várias tabelas e controla a própria transação.
+
+    Qual é a escolha mais adequada?
+  options:
+    - text: A como função e B como procedure
+      why: Certo. Função devolve um valor utilizável em consultas. Procedure é chamada com CALL e pode controlar transações.
+    - text: A como procedure e B como função
+      why: Procedure não pode ser usada dentro de um SELECT, e função não pode dar COMMIT no PostgreSQL.
+    - text: Os dois como procedure
+      why: A não funcionaria, porque um SELECT não consegue chamar procedure.
+    - text: Os dois como view
+      why: View guarda uma consulta. Ela não recebe parâmetros nem executa várias alterações.
+  answer: 0
+  hints: []
+  explanation: |
+    Guardar lógica no banco centraliza regras e reduz idas e voltas pela rede. O custo é ter uma parte da lógica fora do repositório da aplicação, mais difícil de testar e versionar. Os detalhes variam: em MySQL e SQL Server, a sintaxe e as restrições são outras.
+  traps: []
+
+- slug: sql-dinamico
+  order: 2
+  title: Ordenar pela coluna escolhida
+  section: procedures
+  difficulty: dificil
+  topics: [SQL dinâmico]
+  statement: |
+    O site deixa o visitante escolher a coluna de ordenação da agenda. Parâmetros não servem para nomes de coluna, então é preciso montar o SQL dinamicamente.
+
+    Qual é a abordagem segura?
+  options:
+    - text: Comparar a escolha com uma lista fixa de colunas permitidas e só então montar o comando
+      why: Certo. O texto do visitante nunca entra no SQL, só um valor da sua própria lista.
+    - text: Concatenar a escolha direto no ORDER BY, porque ela só afeta a ordenação
+      why: Qualquer texto concatenado é uma porta para injeção, inclusive em um ORDER BY.
+    - text: Remover aspas do texto antes de concatenar
+      why: Um nome de coluna não precisa de aspas, então um ataque nessa posição funciona sem elas.
+    - text: Enviar a coluna como parâmetro, com ORDER BY e um marcador ?
+      why: O parâmetro vira um valor constante, então todas as linhas empatariam e nada seria ordenado de fato.
+  answer: 0
+  hints: []
+  explanation: |
+    SQL dinâmico é útil em filtros opcionais e colunas variáveis, mas é onde a injeção mais aparece. A regra é simples: valores vão em parâmetros, e nomes de tabela ou coluna vêm de uma lista fixa controlada pelo código.
+  traps: []

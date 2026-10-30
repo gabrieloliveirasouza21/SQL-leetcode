@@ -48,3 +48,24 @@ INSERT INTO members VALUES
   (105, 'Enzo Rocha',  13, 104),
   (106, 'Fábio Melo',  13, 100),
   (107, 'Gil Pontes',  14, 101);
+
+INSERT INTO merch VALUES
+  (10, 10,   'Patch',       15.5,  8),
+  (11, 13,   'Vinil Forge', 200,   1),
+  (12, 13,   'Caneca',      35.75, 24),
+  (13, NULL, 'Bandana',     20,    0),
+  (14, 10,   'Boné Ruína',  40,    50);
+
+INSERT INTO press_contacts VALUES
+  (10, 'Ana Beatriz',     'ANA@X.ORG',      'Zine Sul', '(81) 95555-1000'),
+  (11, 'Bia Reis',        'bia@y.com',      NULL,       NULL),
+  (12, 'Caio Rocha Neto', 'Caio.Neto@Z.IO', '',         '(92) 94444-2000'),
+  (13, 'Dani Luz',        'dani@X.org',     'Zine Sul', NULL);
+
+INSERT INTO checkins VALUES
+  (20, 50, 'Norte', '2026-01-10 23:59:59'),
+  (21, 52, 'Sul',   '2026-02-10 00:00:00'),
+  (22, 53, 'Norte', '2026-02-10 12:00:00'),
+  (23, 55, 'Oeste', '2026-12-31 19:00:00'),
+  (24, 58, 'Sul',   '2026-06-06 18:00:01'),
+  (25, 59, 'Sul',   '2026-01-10 18:59:59');

@@ -54,3 +54,28 @@ INSERT INTO members VALUES
   (6, 'Fred Stone',  4, NULL),
   (7, 'Greta Voss',  8, 6),
   (8, 'Hélio Prado', 5, 4);
+
+INSERT INTO merch VALUES
+  (1, 1,    'Camiseta Ferro',      79.9,  40),
+  (2, 1,    'Boné Ferro',          49.5,   0),
+  (3, 4,    'Vinil Tide',         149,    12),
+  (4, 8,    'Camiseta Hymn',       89.25,  5),
+  (5, NULL, 'Copo do festival',    25,   300),
+  (6, NULL, 'Mochila do festival', 119.75, 0);
+
+INSERT INTO press_contacts VALUES
+  (1, 'Marina Luz',   'MARINA@ROCKPRESS.COM',      'Rock Press', '(11) 99999-0001'),
+  (2, 'Teo Brandao',  'teo.brandao@metalzine.net', 'Metal Zine', '(41) 98888-0002'),
+  (3, 'Sofia Campos', 'sofia@gmail.com',           '',           NULL),
+  (4, 'Rui Alves',    'Rui.Alves@RockPress.com',   NULL,         '(31) 97777-0004'),
+  (5, 'Lara Neves',   'lara@metalzine.net',        'Metal Zine', '(11) 96666-0005');
+
+INSERT INTO checkins VALUES
+  (1, 1,  'Norte', '2026-03-14 18:05:12'),
+  (2, 2,  'Sul',   '2026-03-14 19:47:00'),
+  (3, 7,  'Norte', '2026-03-14 19:02:33'),
+  (4, 8,  'Norte', '2026-03-14 20:15:45'),
+  (5, 10, 'Sul',   '2026-03-16 18:30:00'),
+  (6, 12, 'Leste', '2026-08-22 17:59:59'),
+  (7, 13, 'Leste', '2026-08-24 21:00:00'),
+  (8, 14, 'Norte', '2025-11-08 20:10:10');

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { problems } from './content';
 import { useSolved } from './progress';
 import { ProblemPage } from './ProblemPage';
+import { QuizPage } from './QuizPage';
 import { RoadmapPage } from './RoadmapPage';
 
 function currentSlug() {
@@ -28,7 +29,9 @@ export function App() {
         <a className="brand" href="#/">Trilha <span>SQL</span></a>
         <span className="progress-count">{solved.size} de {problems.length} resolvidos</span>
       </header>
-      {problem ? (
+      {problem?.options ? (
+        <QuizPage key={problem.slug} problem={problem} solved={solved.has(problem.slug)} onSolved={markSolved} />
+      ) : problem ? (
         <ProblemPage key={problem.slug} problem={problem} solved={solved.has(problem.slug)} onSolved={markSolved} />
       ) : (
         <RoadmapPage solved={solved} />

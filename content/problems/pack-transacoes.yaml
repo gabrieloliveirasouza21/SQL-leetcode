@@ -1,0 +1,139 @@
+- slug: anexo-da-arena
+  order: 1
+  title: Tudo ou nada
+  section: transacoes
+  difficulty: medio
+  topics: [BEGIN, COMMIT]
+  statement: |
+    A `Arena Tupi` cedeu 500 lugares para uma casa nova, `Anexo Tupi`, em `São Paulo`, com capacidade 500.
+
+    Faça as duas alterações em uma única transação, para que nunca exista um momento em que só uma delas aconteceu.
+  ordered: true
+  must_use: [BEGIN, COMMIT]
+  check: SELECT name, city, capacity FROM venues ORDER BY name;
+  solution: |
+    BEGIN;
+    UPDATE venues SET capacity = capacity - 500 WHERE name = 'Arena Tupi';
+    INSERT INTO venues (name, city, capacity) VALUES ('Anexo Tupi', 'São Paulo', 500);
+    COMMIT;
+  hints:
+    - Use `capacity - 500`, porque a capacidade atual pode variar.
+  explanation: |
+    Se o sistema cair entre os dois comandos, o banco desfaz tudo que não recebeu COMMIT. Sem transação, os lugares poderiam sumir da arena sem aparecer no anexo.
+  traps:
+    - reason: Sem transação
+      sql: UPDATE venues SET capacity = capacity - 500 WHERE name = 'Arena Tupi'; INSERT INTO venues (name, city, capacity) VALUES ('Anexo Tupi', 'São Paulo', 500);
+    - reason: Capacidade fixa não vale em outros dados
+      sql: BEGIN; UPDATE venues SET capacity = 11500 WHERE name = 'Arena Tupi'; INSERT INTO venues (name, city, capacity) VALUES ('Anexo Tupi', 'São Paulo', 500); COMMIT;
+    - reason: Falta a casa nova
+      sql: BEGIN; UPDATE venues SET capacity = capacity - 500 WHERE name = 'Arena Tupi'; COMMIT;
+
+- slug: ensaio-da-faxina
+  order: 2
+  title: Ensaio sem consequência
+  section: transacoes
+  difficulty: facil
+  topics: [ROLLBACK]
+  statement: |
+    Antes de rodar uma limpeza em produção, você quer ver o efeito dela sem correr risco.
+
+    Abra uma transação, apague todas as linhas de `checkins`, consulte quantas sobraram e desfaça tudo no final.
+  ordered: true
+  must_use: [BEGIN, DELETE, ROLLBACK]
+  check: SELECT COUNT(*) AS linhas FROM checkins;
+  solution: |
+    BEGIN;
+    DELETE FROM checkins;
+    SELECT COUNT(*) FROM checkins;
+    ROLLBACK;
+  hints:
+    - Dentro da transação, você enxerga as próprias alterações.
+  explanation: |
+    ROLLBACK desfaz tudo desde o BEGIN. Esse padrão é um bom hábito antes de um UPDATE ou DELETE perigoso em um banco real. Só não mantenha a transação aberta por muito tempo, porque ela pode bloquear outros usuários.
+  traps:
+    - reason: Confirma em vez de desfazer
+      sql: BEGIN; DELETE FROM checkins; COMMIT;
+    - reason: O DELETE ficou fora da transação
+      sql: BEGIN; ROLLBACK; DELETE FROM checkins;
+
+- slug: ponto-de-salvamento
+  order: 3
+  title: Desfazer só a metade
+  section: transacoes
+  difficulty: medio
+  topics: [SAVEPOINT]
+  statement: |
+    Em uma transação, faça nesta ordem:
+
+    Atualize a capacidade da `Arena Tupi` para 15000. Crie um savepoint. Apague todas as linhas de `merch`. Volte ao savepoint, desfazendo só a exclusão. Confirme a transação.
+
+    No final, a capacidade nova deve valer, e `merch` deve continuar intacta.
+  ordered: true
+  must_use: [SAVEPOINT, ROLLBACK TO, COMMIT]
+  check: SELECT (SELECT capacity FROM venues WHERE name = 'Arena Tupi') AS capacidade, (SELECT COUNT(*) FROM merch) AS produtos;
+  solution: |
+    BEGIN;
+    UPDATE venues SET capacity = 15000 WHERE name = 'Arena Tupi';
+    SAVEPOINT antes_da_exclusao;
+    DELETE FROM merch;
+    ROLLBACK TO antes_da_exclusao;
+    COMMIT;
+  hints:
+    - A sintaxe é `SAVEPOINT nome` e `ROLLBACK TO nome`.
+  explanation: |
+    ROLLBACK TO volta até o savepoint e mantém a transação aberta. Por isso, o COMMIT ainda é necessário. Savepoints ajudam em operações longas, em que uma etapa pode falhar sem invalidar o trabalho anterior.
+  traps:
+    - reason: ROLLBACK desfaz a transação inteira
+      sql: BEGIN; UPDATE venues SET capacity = 15000 WHERE name = 'Arena Tupi'; SAVEPOINT s; DELETE FROM merch; ROLLBACK; COMMIT;
+    - reason: Savepoint antes do UPDATE desfaz tudo
+      sql: BEGIN; SAVEPOINT s; UPDATE venues SET capacity = 15000 WHERE name = 'Arena Tupi'; DELETE FROM merch; ROLLBACK TO s; COMMIT;
+
+- slug: acid-na-pratica
+  order: 4
+  title: A queda de energia
+  section: transacoes
+  difficulty: medio
+  topics: [ACID]
+  statement: |
+    O banco confirmou o COMMIT de uma venda, e o cliente recebeu a mensagem de sucesso. Um segundo depois, acaba a luz no servidor. Quando ele volta, a venda continua lá.
+
+    Qual propriedade de ACID garantiu isso?
+  options:
+    - text: Durabilidade
+      why: Certo. O que foi confirmado sobrevive a falhas, porque o banco grava em disco antes de responder ao COMMIT.
+    - text: Atomicidade
+      why: Atomicidade garante que a transação acontece por inteiro ou não acontece. Ela não trata de sobreviver depois de confirmada.
+    - text: Consistência
+      why: Consistência garante que as regras do banco continuam valendo depois da transação, como restrições e chaves.
+    - text: Isolamento
+      why: Isolamento controla como transações simultâneas enxergam umas às outras. Não há concorrência neste cenário.
+  answer: 0
+  hints: []
+  explanation: |
+    Atomicidade é tudo ou nada. Consistência é respeitar as regras. Isolamento é uma transação não atrapalhar a outra. Durabilidade é o COMMIT sobreviver a falhas. Se a luz acabasse antes do COMMIT, a atomicidade garantiria que nada ficaria pela metade.
+  traps: []
+
+- slug: niveis-de-isolamento
+  order: 5
+  title: O ingresso que nunca existiu
+  section: transacoes
+  difficulty: dificil
+  topics: [Níveis de isolamento]
+  statement: |
+    A transação A reduz o estoque de ingressos, mas ainda não fez COMMIT. A transação B lê o estoque já reduzido e mostra “esgotado” a um cliente. Em seguida, A faz ROLLBACK.
+
+    Que anomalia aconteceu, e qual é o nível mais baixo do padrão SQL que a evita?
+  options:
+    - text: Leitura suja, evitada a partir de READ COMMITTED
+      why: Certo. B leu um dado que nunca foi confirmado. READ COMMITTED só deixa ler o que já recebeu COMMIT.
+    - text: Leitura não repetível, evitada a partir de REPEATABLE READ
+      why: Leitura não repetível é ler duas vezes o mesmo dado confirmado e obter valores diferentes. Aqui o dado não foi confirmado.
+    - text: Leitura fantasma, evitada só em SERIALIZABLE
+      why: Fantasma é uma nova consulta devolver linhas que não existiam antes. Aqui mudou o valor de uma linha.
+    - text: Nenhuma anomalia, porque B só leu e não alterou nada
+      why: Uma leitura também pode causar erro de negócio, e o cliente recebeu uma informação que nunca foi verdadeira.
+  answer: 0
+  hints: []
+  explanation: |
+    Do mais fraco para o mais forte, os níveis são READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ e SERIALIZABLE. Níveis mais fortes evitam mais anomalias, mas geram mais espera ou mais transações abortadas. Cada banco implementa isso de um jeito: o PostgreSQL, por exemplo, nunca permite leitura suja.
+  traps: []

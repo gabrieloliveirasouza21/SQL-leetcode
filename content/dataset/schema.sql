@@ -36,3 +36,26 @@ CREATE TABLE members (
   band_id   INTEGER NOT NULL REFERENCES bands(id),
   mentor_id INTEGER REFERENCES members(id)  -- NULL = sem mentor
 );
+
+CREATE TABLE merch (
+  id      INTEGER PRIMARY KEY,
+  band_id INTEGER REFERENCES bands(id),  -- NULL = produto do próprio festival
+  item    TEXT NOT NULL,
+  price   REAL NOT NULL,
+  stock   INTEGER NOT NULL
+);
+
+CREATE TABLE press_contacts (
+  id        INTEGER PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  email     TEXT NOT NULL,
+  outlet    TEXT,                 -- veículo. Pode ser NULL ou vazio
+  phone     TEXT
+);
+
+CREATE TABLE checkins (
+  id         INTEGER PRIMARY KEY,
+  ticket_id  INTEGER NOT NULL REFERENCES tickets(id),
+  gate       TEXT NOT NULL,
+  scanned_at TEXT NOT NULL        -- formato AAAA-MM-DD HH:MM:SS
+);

@@ -121,6 +121,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .badge.facil, .badge.done { color: var(--good); }
 .badge.medio { color: var(--warn); }
 .badge.dificil { color: var(--bad); }
+.kind { flex: none; color: var(--muted); font-size: 12px; }
 .credit { margin-top: 12px; color: var(--muted); font-size: 13px; }
 .empty { color: var(--muted); font-size: 14px; margin: 6px 0; }
 
@@ -189,6 +190,30 @@ table { border-collapse: collapse; font: 13px/1.4 var(--mono); }
 th, td { padding: 4px 12px; border: 1px solid var(--line); text-align: left; white-space: nowrap; }
 th { background: var(--surface-2); font-weight: 600; }
 td.null { color: var(--muted); font-style: italic; }
+
+/* Problemas conceituais */
+.quiz { max-width: 720px; margin: 0 auto; padding: 20px 16px 56px; }
+.options { display: grid; gap: 8px; margin-top: 20px; }
+.option {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.option:hover { border-color: var(--accent); }
+.option.right { border-color: var(--good); }
+.option.wrong { border-color: var(--bad); }
+.why { margin: 6px 0 4px; padding-left: 14px; font-size: 14px; border-left: 3px solid; }
+.why.right { border-color: var(--good); }
+.why.wrong { border-color: var(--bad); }
+.quiz-after { margin-top: 24px; }
+.quiz-after .next { display: inline-block; margin-top: 16px; }
 
 @media (max-width: 860px) {
   .workspace { display: block; height: auto; }

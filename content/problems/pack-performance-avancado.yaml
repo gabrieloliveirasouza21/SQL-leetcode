@@ -1,0 +1,267 @@
+- slug: so-o-necessario
+  order: 1
+  title: Só o que a tela mostra
+  section: performance
+  difficulty: facil
+  topics: [Projeção seletiva]
+  statement: |
+    O app de celular mostra só a data e o preço dos shows de bandas de `Heavy Metal`, mas o código atual usa `SELECT *` e traz tudo pela rede.
+
+    Retorne apenas `show_date` e `ticket_price` desses shows, ordenados por data e depois por preço. `SELECT *` não é permitido.
+  ordered: true
+  forbid: [SELECT *]
+  solution: |
+    SELECT s.show_date, s.ticket_price
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id
+    WHERE b.genre = 'Heavy Metal'
+    ORDER BY s.show_date, s.ticket_price;
+  hints:
+    - Filtre pelo gênero, não pelo id da banda.
+  explanation: |
+    Pedir só as colunas necessárias reduz disco, memória e rede. Além disso, o código não quebra nem fica mais lento quando alguém adiciona uma coluna grande à tabela.
+  traps:
+    - reason: SELECT * traz colunas demais
+      sql: SELECT * FROM shows s JOIN bands b ON b.id = s.band_id WHERE b.genre = 'Heavy Metal' ORDER BY s.show_date, s.ticket_price;
+    - reason: ID fixo não vale em outros dados
+      sql: SELECT show_date, ticket_price FROM shows WHERE band_id = 4 ORDER BY show_date, ticket_price;
+
+- slug: menos-subqueries
+  order: 2
+  title: Uma subquery para cada coluna
+  section: performance
+  difficulty: medio
+  topics: [Reduzir subqueries, LEFT JOIN]
+  statement: |
+    Esta query funciona, mas executa duas subqueries para cada banda:
+
+    `SELECT b.name, (SELECT COUNT(*) FROM shows s WHERE s.band_id = b.id), (SELECT MAX(ticket_price) FROM shows s WHERE s.band_id = b.id) FROM bands b ORDER BY b.name`
+
+    Reescreva com uma passada só, sem nenhuma subquery. O resultado deve ser idêntico, inclusive para bandas sem show.
+  ordered: true
+  forbid: ['(SELECT']
+  solution: |
+    SELECT b.name, COUNT(s.id) AS total, MAX(s.ticket_price) AS maior
+    FROM bands b
+    LEFT JOIN shows s ON s.band_id = b.id
+    GROUP BY b.id
+    ORDER BY b.name;
+  hints:
+    - Banda sem show precisa continuar no resultado, com total 0.
+    - COUNT(*) conta a linha preenchida com NULL pelo LEFT JOIN. O que conta só shows reais?
+  explanation: |
+    Um JOIN com GROUP BY lê os dados uma vez e calcula tudo junto. A armadilha é COUNT(*), que conta 1 para bandas sem show, porque o LEFT JOIN gera uma linha para elas. COUNT(s.id) ignora o NULL e chega a 0. Nem toda subquery é lenta, então confirme o ganho no plano de execução.
+  traps:
+    - reason: Ainda usa subqueries
+      sql: SELECT b.name, (SELECT COUNT(*) FROM shows s WHERE s.band_id = b.id), (SELECT MAX(ticket_price) FROM shows s WHERE s.band_id = b.id) FROM bands b ORDER BY b.name;
+    - reason: COUNT(*) conta 1 para banda sem show
+      sql: SELECT b.name, COUNT(*), MAX(s.ticket_price) FROM bands b LEFT JOIN shows s ON s.band_id = b.id GROUP BY b.id ORDER BY b.name;
+    - reason: INNER JOIN elimina bandas sem show
+      sql: SELECT b.name, COUNT(s.id), MAX(s.ticket_price) FROM bands b JOIN shows s ON s.band_id = b.id GROUP BY b.id ORDER BY b.name;
+
+- slug: lendo-o-plano
+  order: 3
+  title: Lendo o plano de execução
+  section: performance
+  difficulty: medio
+  topics: [Análise de consultas]
+  statement: |
+    Rodando `EXPLAIN QUERY PLAN` em uma consulta lenta, o SQLite mostra:
+
+    `SCAN tickets`
+
+    Depois de criar um índice em `tickets(show_id)`, a mesma consulta mostra:
+
+    `SEARCH tickets USING INDEX idx_tickets_show (show_id=?)`
+
+    O que mudou?
+  options:
+    - text: Antes o banco lia a tabela inteira, e agora vai direto às linhas pelo índice
+      why: Certo. SCAN percorre todas as linhas. SEARCH usa uma estrutura ordenada para chegar só às necessárias.
+    - text: A consulta passou a devolver menos linhas
+      why: Um índice nunca muda o resultado de uma consulta, só o caminho para chegar a ele.
+    - text: Antes o banco procurava no índice, e agora lê a tabela
+      why: Está invertido. SCAN é a leitura completa, e SEARCH é a busca direcionada.
+    - text: A consulta agora roda em paralelo
+      why: O plano não fala de paralelismo. Ele mostra como as linhas são localizadas.
+  answer: 0
+  hints: []
+  explanation: |
+    O plano de execução é a primeira ferramenta para investigar lentidão, porque mostra o que o banco realmente faz. Em PostgreSQL, EXPLAIN ANALYZE também executa a consulta e mostra tempos reais. Um SCAN nem sempre é ruim: em uma tabela pequena, ou quando a maior parte dela será lida, é a melhor opção.
+  traps: []
+
+- slug: otimizar-join
+  order: 4
+  title: Um join lento
+  section: performance
+  difficulty: medio
+  topics: [Otimizar joins]
+  statement: |
+    Esta consulta está lenta, e `tickets` tem milhões de linhas:
+
+    `SELECT b.name, t.quantity FROM tickets t JOIN shows s ON s.id = t.show_id JOIN bands b ON b.id = s.band_id WHERE s.show_date = '2026-03-14'`
+
+    As chaves primárias já têm índice. Qual é a primeira alteração a testar?
+  options:
+    - text: Criar índices em shows(show_date) e tickets(show_id)
+      why: Certo. O primeiro acha os shows da data, e o segundo acha os pedidos de cada show, sem ler a tabela inteira.
+    - text: Trocar JOIN por LEFT JOIN
+      why: Isso muda o significado da consulta e costuma dar menos liberdade ao otimizador.
+    - text: Criar um índice em tickets(quantity)
+      why: A coluna não é usada para filtrar nem para ligar tabelas, então o índice não ajuda aqui.
+    - text: Reescrever a ordem das tabelas no FROM
+      why: O otimizador normalmente já escolhe a ordem. Sem índice, ele continua sem caminho rápido.
+  answer: 0
+  hints: []
+  explanation: |
+    Indexe colunas usadas em filtros e nas condições de JOIN, especialmente chaves estrangeiras, que muitos bancos não indexam sozinhos. Depois, confirme a melhora no plano de execução, em vez de supor.
+  traps: []
+
+- slug: numerando-os-shows
+  order: 10
+  title: Primeiro, segundo, terceiro show
+  section: avancado
+  difficulty: medio
+  topics: [ROW_NUMBER]
+  statement: |
+    Para cada show, retorne o nome da banda, a data e o número do show na agenda daquela banda, começando em 1. A numeração segue a data e, em caso de empate, o `id` do show.
+
+    Ordene por nome da banda, data e `id` do show.
+  ordered: true
+  solution: |
+    SELECT
+      b.name,
+      s.show_date,
+      ROW_NUMBER() OVER (PARTITION BY s.band_id ORDER BY s.show_date, s.id) AS numero
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id
+    ORDER BY b.name, s.show_date, s.id;
+  hints:
+    - PARTITION BY reinicia a contagem. ORDER BY dentro de OVER define a sequência.
+  explanation: |
+    Window functions calculam sobre um conjunto de linhas e mantêm cada linha no resultado, ao contrário do GROUP BY. O ORDER BY do OVER define a numeração, e o ORDER BY final define a exibição. Os dois são independentes.
+  traps:
+    - reason: Sem PARTITION BY a numeração é global
+      sql: SELECT b.name, s.show_date, ROW_NUMBER() OVER (ORDER BY s.show_date, s.id) FROM shows s JOIN bands b ON b.id = s.band_id ORDER BY b.name, s.show_date, s.id;
+    - reason: Ordem invertida
+      sql: SELECT b.name, s.show_date, ROW_NUMBER() OVER (PARTITION BY s.band_id ORDER BY s.show_date DESC, s.id DESC) FROM shows s JOIN bands b ON b.id = s.band_id ORDER BY b.name, s.show_date, s.id;
+
+- slug: ranking-de-precos
+  order: 11
+  title: Pódio sem buracos
+  section: avancado
+  difficulty: medio
+  topics: [DENSE_RANK, RANK]
+  statement: |
+    Monte o ranking de preços de todos os shows, do mais caro ao mais barato. Preços iguais dividem a mesma posição, e a posição seguinte não pula números: depois de dois em 2º lugar, vem o 3º.
+
+    Retorne `id`, `ticket_price` e a posição. Ordene pela posição e depois por `id`.
+  ordered: true
+  solution: |
+    SELECT
+      id,
+      ticket_price,
+      DENSE_RANK() OVER (ORDER BY ticket_price DESC) AS posicao
+    FROM shows
+    ORDER BY posicao, id;
+  hints:
+    - Compare ROW_NUMBER, RANK e DENSE_RANK em colunas lado a lado.
+  explanation: |
+    Com dois empatados em 2º lugar, ROW_NUMBER numera 2, 3, 4, RANK numera 2, 2, 4, e DENSE_RANK numera 2, 2, 3. A escolha depende da pergunta de negócio.
+  traps:
+    - reason: RANK pula posições
+      sql: SELECT id, ticket_price, RANK() OVER (ORDER BY ticket_price DESC) AS p FROM shows ORDER BY p, id;
+    - reason: ROW_NUMBER ignora empates
+      sql: SELECT id, ticket_price, ROW_NUMBER() OVER (ORDER BY ticket_price DESC, id) AS p FROM shows ORDER BY p, id;
+
+- slug: proximo-show
+  order: 15
+  title: Qual é o próximo show?
+  section: avancado
+  difficulty: medio
+  topics: [LEAD]
+  statement: |
+    Para cada show, retorne o nome da banda, a data e a data do próximo show da mesma banda. O último show de cada banda fica com nulo.
+
+    O próximo show é definido por data e, em caso de empate, pelo `id` do show. Ordene por nome da banda, data e `id` do show.
+  ordered: true
+  solution: |
+    SELECT
+      b.name,
+      s.show_date,
+      LEAD(s.show_date) OVER (PARTITION BY s.band_id ORDER BY s.show_date, s.id) AS proximo
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id
+    ORDER BY b.name, s.show_date, s.id;
+  hints:
+    - LEAD olha para a linha seguinte da janela. LAG olha para a anterior.
+  explanation: |
+    LEAD evita um self join complicado. Com ele, ficam fáceis perguntas como o intervalo entre shows ou o próximo evento de um usuário.
+  traps:
+    - reason: LAG olha para trás
+      sql: SELECT b.name, s.show_date, LAG(s.show_date) OVER (PARTITION BY s.band_id ORDER BY s.show_date, s.id) FROM shows s JOIN bands b ON b.id = s.band_id ORDER BY b.name, s.show_date, s.id;
+    - reason: Sem PARTITION BY mistura bandas
+      sql: SELECT b.name, s.show_date, LEAD(s.show_date) OVER (ORDER BY s.show_date, s.id) FROM shows s JOIN bands b ON b.id = s.band_id ORDER BY b.name, s.show_date, s.id;
+
+- slug: pedidos-por-status
+  order: 16
+  title: Status em colunas
+  section: avancado
+  difficulty: medio
+  topics: [PIVOT e UNPIVOT, CASE]
+  statement: |
+    A diretoria quer ver um relatório em que cada status vira uma coluna.
+
+    Para cada `show_id` com pedidos, retorne a soma de `quantity` em `pago`, `reservado` e `cancelado`, nesta ordem, com 0 quando não houver. Ordene por `show_id`.
+
+    O SQLite não tem o operador `PIVOT`, então use agregação condicional.
+  ordered: true
+  solution: |
+    SELECT
+      show_id,
+      SUM(CASE WHEN status = 'pago' THEN quantity ELSE 0 END) AS pago,
+      SUM(CASE WHEN status = 'reservado' THEN quantity ELSE 0 END) AS reservado,
+      SUM(CASE WHEN status = 'cancelado' THEN quantity ELSE 0 END) AS cancelado
+    FROM tickets
+    GROUP BY show_id
+    ORDER BY show_id;
+  hints:
+    - Coloque um CASE dentro de cada SUM.
+  explanation: |
+    Agregação condicional gira linhas em colunas e funciona em qualquer banco. O operador PIVOT do SQL Server e do Oracle é só uma forma mais curta. A limitação é a mesma: as colunas precisam ser conhecidas ao escrever a query.
+  traps:
+    - reason: Conta pedidos, não ingressos
+      sql: SELECT show_id, SUM(CASE WHEN status = 'pago' THEN 1 ELSE 0 END), SUM(CASE WHEN status = 'reservado' THEN 1 ELSE 0 END), SUM(CASE WHEN status = 'cancelado' THEN 1 ELSE 0 END) FROM tickets GROUP BY show_id ORDER BY show_id;
+    - reason: Sem ELSE aparece NULL
+      sql: SELECT show_id, SUM(CASE WHEN status = 'pago' THEN quantity END), SUM(CASE WHEN status = 'reservado' THEN quantity END), SUM(CASE WHEN status = 'cancelado' THEN quantity END) FROM tickets GROUP BY show_id ORDER BY show_id;
+
+- slug: contatos-em-linhas
+  order: 17
+  title: Colunas em linhas
+  section: avancado
+  difficulty: medio
+  topics: [PIVOT e UNPIVOT]
+  statement: |
+    A ferramenta de disparo espera uma linha por forma de contato. Transforme as colunas `email` e `phone` de `press_contacts` em linhas com `id`, tipo e valor.
+
+    O tipo é `email` ou `telefone`. Telefones nulos não entram. Ordene por `id` e depois por tipo.
+
+    O SQLite não tem o operador `UNPIVOT`, então use `UNION ALL`.
+  ordered: true
+  solution: |
+    SELECT id, 'email' AS tipo, email AS valor
+    FROM press_contacts
+    UNION ALL
+    SELECT id, 'telefone', phone
+    FROM press_contacts
+    WHERE phone IS NOT NULL
+    ORDER BY 1, 2;
+  hints:
+    - Cada coluna original vira um SELECT. No final, junte todos.
+  explanation: |
+    UNION ALL empilha resultados sem verificar duplicatas. UNION faria essa verificação a mais, com custo extra e sem necessidade aqui. O ORDER BY no fim vale para o resultado inteiro.
+  traps:
+    - reason: Inclui telefones nulos
+      sql: SELECT id, 'email', email FROM press_contacts UNION ALL SELECT id, 'telefone', phone FROM press_contacts ORDER BY 1, 2;
+    - reason: Falta o e-mail
+      sql: SELECT id, 'telefone', phone FROM press_contacts WHERE phone IS NOT NULL ORDER BY 1, 2;

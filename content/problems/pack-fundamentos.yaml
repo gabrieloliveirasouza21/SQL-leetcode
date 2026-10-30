@@ -1,0 +1,79 @@
+- slug: paises-representados
+  order: 3
+  title: Quantas bandeiras no palco?
+  section: fundamentos
+  difficulty: facil
+  topics: [SELECT, DISTINCT]
+  statement: |
+    A cenografia vai pendurar uma bandeira de cada país com banda cadastrada.
+
+    Liste cada `country` uma única vez, em ordem alfabética.
+  ordered: true
+  solution: |
+    SELECT DISTINCT country
+    FROM bands
+    ORDER BY country;
+  hints:
+    - Rode primeiro sem nenhum filtro e veja quantas vezes o Brasil aparece.
+  explanation: |
+    DISTINCT remove linhas repetidas do resultado. Ele considera a linha inteira, então `SELECT DISTINCT country, genre` devolveria combinações de país e gênero.
+  traps:
+    - reason: Países repetidos
+      sql: SELECT country FROM bands ORDER BY country;
+    - reason: Sem ordenação
+      sql: SELECT DISTINCT country FROM bands;
+
+- slug: thrash-ou-doom
+  order: 4
+  title: Thrash ou doom da velha guarda
+  section: fundamentos
+  difficulty: facil
+  topics: [Operadores, WHERE]
+  statement: |
+    Uma noite temática vai reunir bandas de `Thrash Metal` ou `Doom Metal` formadas entre 1994 e 2003, incluindo esses dois anos.
+
+    Liste o `name` dessas bandas em ordem alfabética.
+  ordered: true
+  solution: |
+    SELECT name
+    FROM bands
+    WHERE genre IN ('Thrash Metal', 'Doom Metal')
+      AND formed_year BETWEEN 1994 AND 2003
+    ORDER BY name;
+  hints:
+    - AND é avaliado antes de OR. Se misturar os dois, use parênteses.
+    - BETWEEN inclui os dois extremos.
+  explanation: |
+    Sem parênteses, `a AND b OR c` significa `(a AND b) OR c`, e a banda de doom de 2019 entraria na lista. IN evita esse problema e deixa a intenção mais clara.
+  traps:
+    - reason: AND é avaliado antes de OR
+      sql: SELECT name FROM bands WHERE formed_year BETWEEN 1994 AND 2003 AND genre = 'Thrash Metal' OR genre = 'Doom Metal' ORDER BY name;
+    - reason: Exclui 1994
+      sql: SELECT name FROM bands WHERE genre IN ('Thrash Metal', 'Doom Metal') AND formed_year > 1994 AND formed_year <= 2003 ORDER BY name;
+
+- slug: ordem-de-execucao
+  order: 5
+  title: Por que o apelido não funciona no WHERE?
+  section: fundamentos
+  difficulty: medio
+  topics: [Palavras-chave SQL, FROM]
+  statement: |
+    Esta query dá erro em muitos bancos, porque o apelido `preco` não é reconhecido no `WHERE`:
+
+    `SELECT ticket_price * 2 AS preco FROM shows WHERE preco > 100`
+
+    Qual é a ordem lógica em que as cláusulas são processadas?
+  options:
+    - text: FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY
+      why: Certo. O SELECT vem depois do WHERE, então o apelido ainda não existe quando o filtro roda. O ORDER BY vem depois e consegue usá-lo.
+    - text: SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY
+      why: Essa é a ordem de escrita, não a de processamento. O banco precisa saber a origem dos dados antes de calcular colunas.
+    - text: FROM, SELECT, WHERE, ORDER BY, GROUP BY, HAVING
+      why: Se o SELECT viesse antes do WHERE, o apelido funcionaria no filtro. E o ORDER BY precisa vir depois do agrupamento.
+    - text: WHERE, FROM, SELECT, GROUP BY, HAVING, ORDER BY
+      why: Não é possível filtrar linhas antes de saber de qual tabela elas vêm.
+  answer: 0
+  hints: []
+  explanation: |
+    Essa ordem explica vários erros comuns: apelido no WHERE, função de agregação no WHERE e window function no WHERE. Em todos, a cláusula tenta usar algo que só será calculado depois. O SQLite aceita apelidos no WHERE como extensão, mas isso não vale para a maioria dos bancos.
+  traps: []

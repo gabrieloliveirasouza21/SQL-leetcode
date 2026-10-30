@@ -1,0 +1,165 @@
+- slug: contatos-com-telefone
+  order: 5
+  title: Quem atende o telefone?
+  section: agregacao
+  difficulty: facil
+  topics: [COUNT, 'NULL']
+  statement: |
+    A assessoria quer saber quantos contatos de imprensa existem e quantos têm telefone cadastrado.
+
+    Retorne uma linha com duas colunas: o total de contatos e o total com `phone` preenchido.
+  ordered: false
+  solution: |
+    SELECT COUNT(*) AS total, COUNT(phone) AS com_telefone
+    FROM press_contacts;
+  hints:
+    - COUNT(*) e COUNT(coluna) não contam a mesma coisa.
+  explanation: |
+    COUNT(*) conta linhas. COUNT(coluna) conta só valores não nulos. Essa diferença permite responder as duas perguntas na mesma query, sem WHERE.
+  traps:
+    - reason: As duas colunas contam linhas
+      sql: SELECT COUNT(*), COUNT(*) FROM press_contacts;
+    - reason: Coluna errada
+      sql: SELECT COUNT(*), COUNT(outlet) FROM press_contacts;
+
+- slug: extremos-de-preco
+  order: 6
+  title: Do mais barato ao mais caro
+  section: agregacao
+  difficulty: facil
+  topics: [MIN, MAX, AVG, GROUP BY]
+  statement: |
+    Para cada banda com pelo menos um show, retorne o nome, o menor preço, o maior preço e a média de `ticket_price` arredondada para 2 casas. Ordene pelo nome da banda.
+  ordered: true
+  solution: |
+    SELECT
+      b.name,
+      MIN(s.ticket_price),
+      MAX(s.ticket_price),
+      ROUND(AVG(s.ticket_price), 2)
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id
+    GROUP BY b.id
+    ORDER BY b.name;
+  hints:
+    - Bandas sem show não entram, então qual tipo de JOIN você precisa?
+  explanation: |
+    Agrupar por `b.id` em vez de `b.name` protege contra duas bandas homônimas. Toda função de agregação ignora NULL, e AVG também: a média é calculada só sobre os valores presentes.
+  traps:
+    - reason: Sem GROUP BY sobra uma linha
+      sql: SELECT b.name, MIN(s.ticket_price), MAX(s.ticket_price), ROUND(AVG(s.ticket_price), 2) FROM shows s JOIN bands b ON b.id = s.band_id ORDER BY b.name;
+    - reason: LEFT JOIN traz bandas sem show
+      sql: SELECT b.name, MIN(s.ticket_price), MAX(s.ticket_price), ROUND(AVG(s.ticket_price), 2) FROM bands b LEFT JOIN shows s ON b.id = s.band_id GROUP BY b.id ORDER BY b.name;
+
+- slug: credenciais
+  order: 1
+  title: Credenciais sem duplicata
+  section: restricoes
+  difficulty: facil
+  topics: [PRIMARY KEY, UNIQUE, NOT NULL]
+  statement: |
+    Crie a tabela `accreditations` com as colunas `id`, `code` e `holder`, nesta ordem.
+
+    `id` é inteiro e chave primária. `code` é texto obrigatório e não pode se repetir. `holder` é texto obrigatório.
+
+    O corretor vai tentar inserir dados válidos e inválidos na sua tabela.
+  ordered: true
+  check: SELECT name FROM pragma_table_info('accreditations') ORDER BY cid;
+  accepts:
+    - INSERT INTO accreditations (id, code, holder) VALUES (1, 'A1', 'Marina');
+  rejects:
+    - INSERT INTO accreditations (id, code, holder) VALUES (1, 'A2', 'Duda');
+    - INSERT INTO accreditations (id, code, holder) VALUES (2, 'A1', 'Duda');
+    - INSERT INTO accreditations (id, code, holder) VALUES (3, NULL, 'Duda');
+    - INSERT INTO accreditations (id, code, holder) VALUES (4, 'A4', NULL);
+  solution: |
+    CREATE TABLE accreditations (
+      id     INTEGER PRIMARY KEY,
+      code   TEXT NOT NULL UNIQUE,
+      holder TEXT NOT NULL
+    );
+  hints:
+    - Uma coluna pode ter mais de uma restrição.
+    - UNIQUE sozinho aceita vários NULL. Por isso `code` precisa de NOT NULL também.
+  explanation: |
+    Uma tabela tem uma só chave primária, que identifica cada linha. UNIQUE vale para outras colunas que também não podem repetir. Restrições no banco valem para qualquer sistema que escreva nele, inclusive um script feito às pressas.
+  traps:
+    - reason: Sem UNIQUE
+      sql: CREATE TABLE accreditations (id INTEGER PRIMARY KEY, code TEXT NOT NULL, holder TEXT NOT NULL);
+    - reason: UNIQUE sem NOT NULL aceita nulos
+      sql: CREATE TABLE accreditations (id INTEGER PRIMARY KEY, code TEXT UNIQUE, holder TEXT NOT NULL);
+    - reason: Sem chave primária
+      sql: CREATE TABLE accreditations (id INTEGER, code TEXT NOT NULL UNIQUE, holder TEXT NOT NULL);
+
+- slug: limite-de-desconto
+  order: 2
+  title: Desconto tem limite
+  section: restricoes
+  difficulty: medio
+  topics: [CHECK]
+  statement: |
+    Crie a tabela `promotions` com `id` (inteiro, chave primária), `code` (texto obrigatório) e `discount` (inteiro obrigatório).
+
+    O banco deve aceitar em `discount` valores de 1 a 50, inclusive, e recusar qualquer outro.
+  ordered: true
+  check: SELECT name FROM pragma_table_info('promotions') ORDER BY cid;
+  accepts:
+    - INSERT INTO promotions (id, code, discount) VALUES (1, 'MIN', 1);
+    - INSERT INTO promotions (id, code, discount) VALUES (2, 'MAX', 50);
+  rejects:
+    - INSERT INTO promotions (id, code, discount) VALUES (3, 'ZERO', 0);
+    - INSERT INTO promotions (id, code, discount) VALUES (4, 'ALTO', 51);
+    - INSERT INTO promotions (id, code, discount) VALUES (5, 'NULO', NULL);
+  solution: |
+    CREATE TABLE promotions (
+      id       INTEGER PRIMARY KEY,
+      code     TEXT NOT NULL,
+      discount INTEGER NOT NULL CHECK (discount BETWEEN 1 AND 50)
+    );
+  hints:
+    - Teste os dois extremos, 1 e 50.
+    - O que CHECK faz quando a expressão resulta em NULL?
+  explanation: |
+    CHECK só recusa quando a expressão é falsa. Com NULL, o resultado é desconhecido, e a linha passa. Por isso CHECK quase sempre precisa vir junto de NOT NULL.
+  traps:
+    - reason: CHECK sozinho aceita NULL
+      sql: CREATE TABLE promotions (id INTEGER PRIMARY KEY, code TEXT NOT NULL, discount INTEGER CHECK (discount BETWEEN 1 AND 50));
+    - reason: Recusa os extremos
+      sql: CREATE TABLE promotions (id INTEGER PRIMARY KEY, code TEXT NOT NULL, discount INTEGER NOT NULL CHECK (discount > 1 AND discount < 50));
+    - reason: Sem limite superior
+      sql: CREATE TABLE promotions (id INTEGER PRIMARY KEY, code TEXT NOT NULL, discount INTEGER NOT NULL CHECK (discount >= 1));
+
+- slug: setlist-de-verdade
+  order: 3
+  title: Música em show que não existe
+  section: restricoes
+  difficulty: medio
+  topics: [FOREIGN KEY]
+  statement: |
+    Crie a tabela `setlists` com `id` (inteiro, chave primária), `show_id` (inteiro obrigatório) e `song` (texto obrigatório).
+
+    O banco deve recusar uma música ligada a um show que não existe em `shows`.
+  ordered: true
+  check: SELECT name FROM pragma_table_info('setlists') ORDER BY cid;
+  accepts:
+    - INSERT INTO setlists (show_id, song) VALUES ((SELECT MIN(id) FROM shows), 'Abertura');
+  rejects:
+    - INSERT INTO setlists (show_id, song) VALUES (999999, 'Fantasma');
+    - INSERT INTO setlists (show_id, song) VALUES (NULL, 'Sem show');
+  solution: |
+    CREATE TABLE setlists (
+      id      INTEGER PRIMARY KEY,
+      show_id INTEGER NOT NULL REFERENCES shows(id),
+      song    TEXT NOT NULL
+    );
+  hints:
+    - A sintaxe é `coluna TIPO REFERENCES tabela(coluna)`.
+  explanation: |
+    A chave estrangeira garante que toda referência aponta para algo real e também impede apagar um show que ainda tem músicas. No SQLite, ela só vale com `PRAGMA foreign_keys = ON`, que este corretor já liga. Em PostgreSQL e MySQL com InnoDB, ela vale sempre.
+  traps:
+    - reason: Sem chave estrangeira
+      sql: CREATE TABLE setlists (id INTEGER PRIMARY KEY, show_id INTEGER NOT NULL, song TEXT NOT NULL);
+    - reason: Referencia a tabela errada
+      sql: CREATE TABLE setlists (id INTEGER PRIMARY KEY, show_id INTEGER NOT NULL REFERENCES bands(id), song TEXT NOT NULL);
+    - reason: show_id opcional
+      sql: CREATE TABLE setlists (id INTEGER PRIMARY KEY, show_id INTEGER REFERENCES shows(id), song TEXT NOT NULL);

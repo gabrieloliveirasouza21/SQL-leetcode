@@ -1,0 +1,216 @@
+- slug: preco-de-etiqueta
+  order: 1
+  title: Preço de etiqueta
+  section: funcoes
+  difficulty: facil
+  topics: [ROUND, CEILING, FLOOR]
+  statement: |
+    Para cada produto de `merch`, retorne o `item`, o preço promocional com 15% de desconto arredondado para 2 casas, o preço arredondado sempre para cima e o preço arredondado sempre para baixo. Ordene pelo `item`.
+  ordered: true
+  solution: |
+    SELECT
+      item,
+      ROUND(price * 0.85, 2) AS promocional,
+      CEILING(price) AS para_cima,
+      FLOOR(price) AS para_baixo
+    FROM merch
+    ORDER BY item;
+  hints:
+    - ROUND vai para o valor mais próximo. Quais funções têm direção fixa?
+  explanation: |
+    ROUND escolhe o valor mais próximo, CEILING sobe para o próximo inteiro e FLOOR desce. Com valores negativos a direção continua a mesma, então FLOOR(-1.5) é -2.
+  traps:
+    - reason: ROUND não sobe sempre
+      sql: SELECT item, ROUND(price * 0.85, 2), ROUND(price), FLOOR(price) FROM merch ORDER BY item;
+    - reason: Sem desconto
+      sql: SELECT item, ROUND(price, 2), CEILING(price), FLOOR(price) FROM merch ORDER BY item;
+
+- slug: caixas-de-reposicao
+  order: 2
+  title: Caixas de reposição
+  section: funcoes
+  difficulty: facil
+  topics: [MOD, ABS]
+  statement: |
+    Os produtos são embalados em caixas de 12, e a meta de estoque é 50 unidades.
+
+    Para cada produto, retorne o `item`, quantas unidades sobram fora de caixas fechadas e a distância do estoque até a meta, sempre positiva. Ordene por `id`.
+
+    O módulo pode ser escrito com o operador `%` ou com a função `MOD`, conforme o banco. Aqui, os dois funcionam.
+  ordered: true
+  solution: |
+    SELECT item, stock % 12 AS soltas, ABS(stock - 50) AS distancia
+    FROM merch
+    ORDER BY id;
+  hints:
+    - Módulo é o resto da divisão.
+  explanation: |
+    `%` devolve o resto da divisão inteira, e ABS descarta o sinal. Divisão entre inteiros no SQLite descarta a parte decimal, o que costuma surpreender em cálculos de média.
+  traps:
+    - reason: Divisão em vez de resto
+      sql: SELECT item, stock / 12, ABS(stock - 50) FROM merch ORDER BY id;
+    - reason: Distância negativa
+      sql: SELECT item, stock % 12, stock - 50 FROM merch ORDER BY id;
+
+- slug: veiculo-independente
+  order: 3
+  title: Sem veículo, independente
+  section: funcoes
+  difficulty: medio
+  topics: [NULLIF, COALESCE]
+  statement: |
+    Em `press_contacts`, jornalistas sem veículo aparecem de duas formas: `outlet` nulo ou texto vazio. O credenciamento quer mostrar `Independente` nos dois casos.
+
+    Retorne `full_name` e o veículo tratado, em ordem de `full_name`.
+  ordered: true
+  solution: |
+    SELECT full_name, COALESCE(NULLIF(outlet, ''), 'Independente') AS veiculo
+    FROM press_contacts
+    ORDER BY full_name;
+  hints:
+    - COALESCE não trata texto vazio, porque texto vazio não é NULL.
+    - NULLIF(a, b) devolve NULL quando a é igual a b.
+  explanation: |
+    NULLIF transforma o texto vazio em NULL, e COALESCE substitui o NULL. A combinação unifica os dois casos em uma linha só. Sistemas antigos costumam misturar NULL e texto vazio, por isso esse padrão aparece muito.
+  traps:
+    - reason: COALESCE não pega texto vazio
+      sql: SELECT full_name, COALESCE(outlet, 'Independente') FROM press_contacts ORDER BY full_name;
+    - reason: Não substitui os nulos
+      sql: SELECT full_name, NULLIF(outlet, '') FROM press_contacts ORDER BY full_name;
+
+- slug: dominios-da-imprensa
+  order: 4
+  title: De quais domínios vêm os jornalistas?
+  section: funcoes
+  difficulty: medio
+  topics: [SUBSTRING, LOWER, GROUP BY]
+  statement: |
+    Os e-mails foram digitados sem padrão de maiúsculas e minúsculas. Agrupe os contatos pelo domínio, que é tudo depois do `@`, em letras minúsculas.
+
+    Retorne o domínio e a quantidade de contatos. Ordene pela quantidade, da maior para a menor, e depois pelo domínio.
+
+    Em SQLite, `SUBSTR` extrai trechos e `INSTR` acha a posição de um caractere.
+  ordered: true
+  solution: |
+    SELECT LOWER(SUBSTR(email, INSTR(email, '@') + 1)) AS dominio, COUNT(*) AS total
+    FROM press_contacts
+    GROUP BY dominio
+    ORDER BY total DESC, dominio;
+  hints:
+    - INSTR devolve a posição do `@`. O domínio começa na posição seguinte.
+    - Sem LOWER, ROCKPRESS.COM e RockPress.com viram grupos separados.
+  explanation: |
+    Normalizar antes de agrupar evita que variações de digitação dividam o resultado. Se uma query dessas roda muito, vale gravar o e-mail já normalizado.
+  traps:
+    - reason: Sem LOWER os grupos se dividem
+      sql: SELECT SUBSTR(email, INSTR(email, '@') + 1) AS d, COUNT(*) AS t FROM press_contacts GROUP BY d ORDER BY t DESC, d;
+    - reason: Inclui o arroba
+      sql: SELECT LOWER(SUBSTR(email, INSTR(email, '@'))) AS d, COUNT(*) AS t FROM press_contacts GROUP BY d ORDER BY t DESC, d;
+
+- slug: crachas-da-imprensa
+  order: 5
+  title: Crachás da imprensa
+  section: funcoes
+  difficulty: medio
+  topics: [CONCAT, UPPER, REPLACE, LENGTH]
+  statement: |
+    Para cada contato com `phone` preenchido, retorne por `id` crescente:
+
+    O texto do crachá, com o nome em maiúsculas, um espaço, `#` e o `id`, como em `MARINA LUZ #1`. O telefone só com dígitos, sem parênteses, espaço ou hífen. O número de caracteres de `full_name`.
+  ordered: true
+  solution: |
+    SELECT
+      CONCAT(UPPER(full_name), ' #', id) AS cracha,
+      REPLACE(REPLACE(REPLACE(REPLACE(phone, '(', ''), ')', ''), ' ', ''), '-', '') AS telefone,
+      LENGTH(full_name) AS tamanho
+    FROM press_contacts
+    WHERE phone IS NOT NULL
+    ORDER BY id;
+  hints:
+    - REPLACE troca um texto por vez, mas pode ser aninhado.
+  explanation: |
+    Funções de texto podem ser compostas de dentro para fora. Atenção a acentos: no SQLite, UPPER e LOWER só convertem letras sem acento, e bancos como PostgreSQL lidam melhor com isso. `||` também concatena, mas vira NULL se um dos lados for NULL, e CONCAT trata NULL como texto vazio.
+  traps:
+    - reason: Nome sem maiúsculas
+      sql: SELECT CONCAT(full_name, ' #', id), REPLACE(REPLACE(REPLACE(REPLACE(phone, '(', ''), ')', ''), ' ', ''), '-', ''), LENGTH(full_name) FROM press_contacts WHERE phone IS NOT NULL ORDER BY id;
+    - reason: Sobra o hífen
+      sql: SELECT CONCAT(UPPER(full_name), ' #', id), REPLACE(REPLACE(REPLACE(phone, '(', ''), ')', ''), ' ', ''), LENGTH(full_name) FROM press_contacts WHERE phone IS NOT NULL ORDER BY id;
+    - reason: Inclui quem não tem telefone
+      sql: SELECT CONCAT(UPPER(full_name), ' #', id), REPLACE(REPLACE(REPLACE(REPLACE(phone, '(', ''), ')', ''), ' ', ''), '-', ''), LENGTH(full_name) FROM press_contacts ORDER BY id;
+
+- slug: pico-de-entrada
+  order: 7
+  title: O horário de pico
+  section: funcoes
+  difficulty: medio
+  topics: [DATEPART, TIMESTAMP]
+  statement: |
+    A segurança quer saber quantas entradas acontecem em cada hora do dia, somando todos os dias.
+
+    Retorne a hora como texto de dois dígitos, como em `18`, e o total de `checkins`, ordenados pela hora.
+
+    O SQLite extrai partes de datas com `strftime`. Outros bancos usam `DATEPART` ou `EXTRACT`.
+  ordered: true
+  solution: |
+    SELECT strftime('%H', scanned_at) AS hora, COUNT(*) AS total
+    FROM checkins
+    GROUP BY hora
+    ORDER BY hora;
+  hints:
+    - O formato `%H` representa a hora em 24h.
+  explanation: |
+    Extrair uma parte da data permite agrupar por ela, ignorando o restante. `%M` é minuto, e `%m` é mês, o que causa erros frequentes.
+  traps:
+    - reason: Agrupa por minuto
+      sql: SELECT strftime('%M', scanned_at) AS hora, COUNT(*) AS total FROM checkins GROUP BY hora ORDER BY hora;
+    - reason: Agrupa pelo instante exato
+      sql: SELECT scanned_at, COUNT(*) FROM checkins GROUP BY scanned_at ORDER BY scanned_at;
+
+- slug: primeira-entrada-do-dia
+  order: 8
+  title: A primeira entrada do dia
+  section: funcoes
+  difficulty: medio
+  topics: [DATE, TIME, TIMESTAMP]
+  statement: |
+    `scanned_at` guarda data e hora juntas. Para cada dia com entradas, retorne a data, o horário da primeira entrada desse dia e o total de entradas. Ordene pela data.
+  ordered: true
+  solution: |
+    SELECT DATE(scanned_at) AS dia, MIN(TIME(scanned_at)) AS primeira, COUNT(*) AS total
+    FROM checkins
+    GROUP BY dia
+    ORDER BY dia;
+  hints:
+    - DATE e TIME separam as partes de um timestamp.
+  explanation: |
+    Agrupar direto pelo timestamp cria um grupo para cada segundo. DATE reduz o valor ao dia. Como o formato é AAAA-MM-DD HH:MM:SS, a ordem de texto coincide com a cronológica, e MIN funciona.
+  traps:
+    - reason: Última entrada, não a primeira
+      sql: SELECT DATE(scanned_at) AS d, MAX(TIME(scanned_at)), COUNT(*) FROM checkins GROUP BY d ORDER BY d;
+    - reason: Devolve o timestamp inteiro
+      sql: SELECT DATE(scanned_at) AS d, MIN(scanned_at), COUNT(*) FROM checkins GROUP BY d ORDER BY d;
+
+- slug: lembrete-de-show
+  order: 9
+  title: Lembrete uma semana antes
+  section: funcoes
+  difficulty: facil
+  topics: [DATEADD, DATE]
+  statement: |
+    O sistema manda um lembrete 7 dias antes de cada show. Retorne `id`, `show_date` e a data do lembrete, ordenados por `id`.
+
+    No SQLite, datas são somadas com modificadores, como em `DATE(coluna, '+1 day')`. Em SQL Server, o equivalente é `DATEADD`.
+  ordered: true
+  solution: |
+    SELECT id, show_date, DATE(show_date, '-7 days') AS lembrete
+    FROM shows
+    ORDER BY id;
+  hints:
+    - Não subtraia o dia como texto. Pense em um show no dia 1º de janeiro.
+  explanation: |
+    Funções de data lidam com virada de mês e de ano, e com anos bissextos. Por isso, manipular a data como texto ou número é uma fonte clássica de bugs.
+  traps:
+    - reason: Depois do show
+      sql: SELECT id, show_date, DATE(show_date, '+7 days') FROM shows ORDER BY id;
+    - reason: Sete meses
+      sql: SELECT id, show_date, DATE(show_date, '-7 months') FROM shows ORDER BY id;

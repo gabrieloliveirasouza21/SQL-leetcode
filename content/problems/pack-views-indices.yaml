@@ -1,0 +1,134 @@
+- slug: view-da-agenda
+  order: 1
+  title: Uma consulta com nome
+  section: views
+  difficulty: facil
+  topics: [Criar views]
+  statement: |
+    Três telas do site repetem o mesmo JOIN da agenda. Crie a view `agenda` com as colunas `banda`, `cidade` e `data`, que trazem o nome da banda, a cidade da casa e a data de cada show.
+  ordered: true
+  must_use: [CREATE VIEW]
+  check: SELECT banda, cidade, data FROM agenda ORDER BY data, banda, cidade;
+  solution: |
+    CREATE VIEW agenda AS
+    SELECT b.name AS banda, v.city AS cidade, s.show_date AS data
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id
+    JOIN venues v ON v.id = s.venue_id;
+  hints:
+    - Os apelidos da consulta viram os nomes das colunas da view.
+  explanation: |
+    Uma view guarda a consulta, não o resultado. Por isso, ela sempre mostra dados atualizados. Uma tabela criada com CREATE TABLE AS seria uma foto, que envelhece assim que os dados mudam.
+  traps:
+    - reason: Tabela é uma foto dos dados
+      sql: CREATE TABLE agenda AS SELECT b.name AS banda, v.city AS cidade, s.show_date AS data FROM shows s JOIN bands b ON b.id = s.band_id JOIN venues v ON v.id = s.venue_id;
+    - reason: Nomes de coluna errados
+      sql: CREATE VIEW agenda AS SELECT b.name, v.city, s.show_date FROM shows s JOIN bands b ON b.id = s.band_id JOIN venues v ON v.id = s.venue_id;
+
+- slug: alterar-view
+  order: 2
+  title: A view precisa do preço
+  section: views
+  difficulty: medio
+  topics: [Alterar views]
+  statement: |
+    O banco já tem esta view:
+
+    `CREATE VIEW agenda_curta AS SELECT band_id, show_date FROM shows;`
+
+    Ela agora precisa trazer também `ticket_price`, como terceira coluna. O SQLite não tem `ALTER VIEW` nem `CREATE OR REPLACE VIEW`, então apague e recrie a view com o mesmo nome.
+  ordered: true
+  setup: CREATE VIEW agenda_curta AS SELECT band_id, show_date FROM shows;
+  must_use: [DROP VIEW, CREATE VIEW]
+  check: SELECT band_id, show_date, ticket_price FROM agenda_curta ORDER BY band_id, show_date, ticket_price;
+  solution: |
+    DROP VIEW agenda_curta;
+    CREATE VIEW agenda_curta AS
+    SELECT band_id, show_date, ticket_price
+    FROM shows;
+  hints:
+    - Você pode enviar dois comandos, separados por ponto e vírgula.
+  explanation: |
+    Apagar uma view não afeta os dados, porque ela só guarda a consulta. PostgreSQL oferece CREATE OR REPLACE VIEW, que preserva permissões, mas só permite acrescentar colunas no fim.
+  traps:
+    - reason: Sem apagar antes dá erro
+      sql: CREATE VIEW agenda_curta AS SELECT band_id, show_date, ticket_price FROM shows;
+    - reason: Faltou a coluna nova
+      sql: DROP VIEW agenda_curta; CREATE VIEW agenda_curta AS SELECT band_id, show_date FROM shows;
+
+- slug: apagar-view
+  order: 3
+  title: Aposentando um relatório
+  section: views
+  difficulty: facil
+  topics: [Apagar views]
+  statement: |
+    O relatório da view `vendas_resumo` foi descontinuado. Remova a view sem afetar a tabela `tickets`, na qual ela se baseia.
+  ordered: true
+  setup: CREATE VIEW vendas_resumo AS SELECT show_id, SUM(quantity) AS total FROM tickets GROUP BY show_id;
+  check: SELECT name, type FROM sqlite_master WHERE name IN ('vendas_resumo', 'tickets') ORDER BY name;
+  solution: |
+    DROP VIEW vendas_resumo;
+  hints:
+    - Tabelas e views têm comandos DROP diferentes.
+  explanation: |
+    DROP VIEW só remove a definição da consulta. Antes de apagar uma view em produção, procure o que depende dela, porque relatórios e outras views podem parar de funcionar.
+  traps:
+    - reason: Apagaria a tabela, e a view continua
+      sql: DROP TABLE tickets;
+    - reason: DROP TABLE não serve para view
+      sql: DROP TABLE vendas_resumo;
+
+- slug: indice-da-agenda
+  order: 1
+  title: A página da banda está lenta
+  section: indices
+  difficulty: medio
+  topics: [Usar índices]
+  statement: |
+    A página de cada banda roda esta consulta milhares de vezes por minuto, e a tabela `shows` cresceu:
+
+    `SELECT * FROM shows WHERE band_id = ? ORDER BY show_date`
+
+    Crie um único índice em `shows` que atenda tanto ao filtro quanto à ordenação. O nome do índice fica a seu critério.
+  ordered: true
+  check: SELECT ii.seqno, ii.name FROM sqlite_master m, pragma_index_info(m.name) ii WHERE m.type = 'index' AND m.tbl_name = 'shows' ORDER BY ii.seqno;
+  solution: |
+    CREATE INDEX idx_shows_band_date ON shows (band_id, show_date);
+  hints:
+    - Em um índice composto, a ordem das colunas importa. Pense em uma lista telefônica, ordenada por sobrenome e depois por nome.
+  explanation: |
+    O índice ordena primeiro por banda e, dentro de cada banda, por data. O banco vai direto ao trecho da banda e lê as datas já em ordem. Na ordem inversa, as linhas de uma banda ficariam espalhadas por todo o índice.
+  traps:
+    - reason: Ordem invertida
+      sql: CREATE INDEX i ON shows (show_date, band_id);
+    - reason: Não ajuda na ordenação
+      sql: CREATE INDEX i ON shows (band_id);
+
+- slug: trocar-indice
+  order: 2
+  title: Trocar um índice que não ajuda
+  section: indices
+  difficulty: medio
+  topics: [Gerenciar índices]
+  statement: |
+    O índice `idx_tickets_buyer` nunca é usado e deixa cada venda um pouco mais lenta. O relatório principal filtra por show e status.
+
+    Apague esse índice e crie `idx_tickets_show_status` em `tickets`, com `show_id` seguido de `status`.
+  ordered: true
+  setup: CREATE INDEX idx_tickets_buyer ON tickets (buyer);
+  check: SELECT m.name, ii.seqno, ii.name FROM sqlite_master m, pragma_index_info(m.name) ii WHERE m.type = 'index' AND m.tbl_name = 'tickets' ORDER BY m.name, ii.seqno;
+  solution: |
+    DROP INDEX idx_tickets_buyer;
+    CREATE INDEX idx_tickets_show_status ON tickets (show_id, status);
+  hints:
+    - Índices aceleram leituras, mas cada INSERT, UPDATE e DELETE precisa mantê-los.
+  explanation: |
+    Índice não é de graça. Ele ocupa espaço e custa em toda escrita, por isso os que não são usados devem sair. Bancos como PostgreSQL mostram estatísticas de uso que ajudam a identificá-los.
+  traps:
+    - reason: O índice antigo continua
+      sql: CREATE INDEX idx_tickets_show_status ON tickets (show_id, status);
+    - reason: Faltou criar o novo
+      sql: DROP INDEX idx_tickets_buyer;
+    - reason: Ordem invertida
+      sql: DROP INDEX idx_tickets_buyer; CREATE INDEX idx_tickets_show_status ON tickets (status, show_id);

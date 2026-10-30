@@ -12,13 +12,13 @@ import { DIFFICULTY_LABEL } from './RoadmapPage';
 const STARTER = '-- Escreva sua query aqui\n';
 
 /** Renderiza `código` inline: enunciados são texto simples, sem Markdown completo. */
-function inline(text: string): ReactNode[] {
+export function inline(text: string): ReactNode[] {
   return text.split(/(`[^`]+`)/g).map((part, i) =>
     part.startsWith('`') && part.endsWith('`') ? <code key={i}>{part.slice(1, -1)}</code> : part,
   );
 }
 
-function Paragraphs({ text }: { text: string }) {
+export function Paragraphs({ text }: { text: string }) {
   return (
     <>
       {text.trim().split(/\n\s*\n/).map((paragraph, i) => (
@@ -82,6 +82,12 @@ function OutputPanel({ output }: { output: Output }) {
       if (verdict.status === 'error') {
         return <div className="verdict bad"><strong>Erro de SQL</strong><p>{verdict.message}</p></div>;
       }
+      if (verdict.stage === 'rule') {
+        return <div className="verdict warn"><strong>Regra do problema</strong><p>{verdict.reason}</p></div>;
+      }
+      if (verdict.stage === 'behavior') {
+        return <div className="verdict bad"><strong>A tabela não se comportou como pedido</strong><p>{verdict.reason}</p></div>;
+      }
       if (verdict.stage === 'hidden') {
         return (
           <div className="verdict warn">
@@ -132,11 +138,11 @@ export function ProblemPage({ problem, solved, onSolved }: { problem: Problem; s
   const run = useCallback(async () => {
     setOutput({ type: 'busy' });
     try {
-      setOutput({ type: 'run', result: await runQuery(code) });
+      setOutput({ type: 'run', result: await runQuery(problem, code) });
     } catch (error) {
       setOutput({ type: 'failure', message: (error as Error).message });
     }
-  }, [code]);
+  }, [code, problem]);
 
   const submit = useCallback(async () => {
     setOutput({ type: 'busy' });
@@ -182,6 +188,9 @@ export function ProblemPage({ problem, solved, onSolved }: { problem: Problem; s
 
         <h3>Resultado esperado no exemplo</h3>
         {problem.check && <p className="muted">Conferido com <code>{problem.check}</code></p>}
+        {(problem.accepts || problem.rejects) && (
+          <p className="muted">O corretor também tenta inserir dados válidos e inválidos na sua tabela.</p>
+        )}
         {expected ? <ResultTable result={expected} /> : <p className="muted">Carregando…</p>}
 
         <h3>Dicas</h3>

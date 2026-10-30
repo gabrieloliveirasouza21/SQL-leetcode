@@ -1,0 +1,157 @@
+- slug: novo-palco
+  order: 3
+  title: Um novo palco em Fortaleza
+  section: manipulacao
+  difficulty: facil
+  topics: [INSERT]
+  statement: |
+    O festival fechou com uma casa nova: `Estação Norte`, em `Fortaleza`, com capacidade para 4200 pessoas.
+
+    Insira essa casa em `venues`, deixando o banco gerar o `id`.
+  ordered: true
+  check: SELECT name, city, capacity FROM venues ORDER BY id;
+  solution: |
+    INSERT INTO venues (name, city, capacity)
+    VALUES ('Estação Norte', 'Fortaleza', 4200);
+  hints:
+    - Liste as colunas depois do nome da tabela. Assim você não precisa informar o id.
+  explanation: |
+    Listar as colunas torna o INSERT independente da ordem delas na tabela e faz o comando continuar funcionando se uma coluna nova for adicionada. Em uma coluna INTEGER PRIMARY KEY, o SQLite gera o id sozinho.
+  traps:
+    - reason: Sem listar colunas, faltam valores
+      sql: INSERT INTO venues VALUES ('Estação Norte', 'Fortaleza', 4200);
+    - reason: Cidade e nome trocados
+      sql: INSERT INTO venues (name, city, capacity) VALUES ('Fortaleza', 'Estação Norte', 4200);
+
+- slug: limpar-cancelados
+  order: 6
+  title: Faxina nos cancelados
+  section: manipulacao
+  difficulty: facil
+  topics: [DELETE]
+  statement: |
+    Os pedidos com `status` igual a `cancelado` podem sair do sistema. Reservas continuam, porque ainda podem virar venda.
+
+    Apague da tabela `tickets` só os cancelados.
+  ordered: true
+  check: SELECT id, status FROM tickets ORDER BY id;
+  solution: |
+    DELETE FROM tickets
+    WHERE status = 'cancelado';
+  hints:
+    - Antes de apagar, rode um SELECT com o mesmo WHERE.
+  explanation: |
+    Assim como no UPDATE, DELETE sem WHERE atinge a tabela inteira. Aqui, além disso, `checkins` aponta para `tickets`, então a chave estrangeira recusaria apagar pedidos que já têm entrada registrada.
+  traps:
+    - reason: Sem WHERE
+      sql: DELETE FROM tickets;
+    - reason: Apaga as reservas também
+      sql: DELETE FROM tickets WHERE status <> 'pago';
+
+- slug: tabela-de-patrocinadores
+  order: 1
+  title: A tabela de patrocinadores
+  section: ddl
+  difficulty: facil
+  topics: [CREATE TABLE, Tipos de dados]
+  statement: |
+    Crie a tabela `sponsors` com estas colunas, nesta ordem:
+
+    `id`: inteiro, chave primária. `name`: texto obrigatório. `budget`: número real obrigatório. `active`: inteiro obrigatório, com valor padrão 1.
+  ordered: true
+  check: SELECT name, type, "notnull", dflt_value, pk FROM pragma_table_info('sponsors') ORDER BY cid;
+  solution: |
+    CREATE TABLE sponsors (
+      id     INTEGER PRIMARY KEY,
+      name   TEXT NOT NULL,
+      budget REAL NOT NULL,
+      active INTEGER NOT NULL DEFAULT 1
+    );
+  hints:
+    - O SQLite usa INTEGER, REAL e TEXT. Outros bancos têm também tipos como VARCHAR e NUMERIC.
+    - Obrigatório significa NOT NULL.
+  explanation: |
+    O tipo diz o que a coluna guarda, e NOT NULL e DEFAULT definem as regras. Em dinheiro real, prefira NUMERIC em bancos que o suportam ou guarde centavos em inteiro, porque REAL acumula erros de arredondamento.
+  traps:
+    - reason: Falta NOT NULL em name
+      sql: CREATE TABLE sponsors (id INTEGER PRIMARY KEY, name TEXT, budget REAL NOT NULL, active INTEGER NOT NULL DEFAULT 1);
+    - reason: budget deveria ser REAL
+      sql: CREATE TABLE sponsors (id INTEGER PRIMARY KEY, name TEXT NOT NULL, budget INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1);
+    - reason: Sem valor padrão
+      sql: CREATE TABLE sponsors (id INTEGER PRIMARY KEY, name TEXT NOT NULL, budget REAL NOT NULL, active INTEGER NOT NULL);
+
+- slug: coluna-headliner
+  order: 2
+  title: Marcando as atrações principais
+  section: ddl
+  difficulty: facil
+  topics: [ALTER TABLE]
+  statement: |
+    A tabela `bands` já tem dados e precisa de uma coluna nova: `headliner`, inteira, obrigatória, com valor padrão 0.
+
+    Altere a tabela sem recriá-la.
+  ordered: true
+  must_use: [ALTER TABLE]
+  check: SELECT name, type, "notnull", dflt_value FROM pragma_table_info('bands') ORDER BY cid;
+  solution: |
+    ALTER TABLE bands
+    ADD COLUMN headliner INTEGER NOT NULL DEFAULT 0;
+  hints:
+    - Uma coluna NOT NULL nova precisa de um valor para as linhas que já existem.
+  explanation: |
+    Sem DEFAULT, o banco não saberia o que colocar nas linhas existentes e recusaria o comando. Em produção, mudanças de estrutura podem travar tabelas grandes, então vale testar antes em uma cópia.
+  traps:
+    - reason: NOT NULL sem DEFAULT é recusado
+      sql: ALTER TABLE bands ADD COLUMN headliner INTEGER NOT NULL;
+    - reason: Coluna opcional
+      sql: ALTER TABLE bands ADD COLUMN headliner INTEGER DEFAULT 0;
+
+- slug: adeus-checkins
+  order: 3
+  title: Apagando a tabela de entradas
+  section: ddl
+  difficulty: facil
+  topics: [DROP TABLE]
+  statement: |
+    O sistema de catracas foi substituído, e a tabela `checkins` não será mais usada.
+
+    Remova a tabela inteira do banco, incluindo a estrutura.
+  ordered: true
+  check: SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name;
+  solution: |
+    DROP TABLE checkins;
+  hints:
+    - Qual a diferença entre apagar as linhas e apagar a tabela?
+  explanation: |
+    DROP TABLE remove estrutura e dados, e não há como desfazer depois da transação confirmada. Bancos costumam recusar o comando quando outra tabela depende dela por chave estrangeira.
+  traps:
+    - reason: Apaga as linhas, mas a tabela continua
+      sql: DELETE FROM checkins;
+    - reason: Tabela errada
+      sql: DROP TABLE merch;
+
+- slug: esvaziar-checkins
+  order: 4
+  title: Zerar para o próximo festival
+  section: ddl
+  difficulty: facil
+  topics: [TRUNCATE TABLE]
+  statement: |
+    A tabela `checkins` precisa ficar vazia para o próximo festival, mas a estrutura deve continuar lá.
+
+    PostgreSQL e MySQL têm `TRUNCATE TABLE` para isso. O SQLite não tem esse comando, mas faz a mesma otimização em um `DELETE` sem `WHERE`. Use esse caminho.
+  ordered: true
+  check: SELECT (SELECT COUNT(*) FROM checkins) AS linhas, (SELECT COUNT(*) FROM sqlite_master WHERE name = 'checkins') AS tabela;
+  solution: |
+    DELETE FROM checkins;
+  hints:
+    - Aqui, sim, o DELETE sem WHERE é o que você quer.
+  explanation: |
+    TRUNCATE é muito mais rápido que DELETE em tabelas grandes, porque não apaga linha por linha. Em muitos bancos ele também reinicia contadores e não dispara triggers de DELETE. Nem todo banco permite desfazê-lo com ROLLBACK.
+  traps:
+    - reason: Sintaxe que o SQLite não tem
+      sql: TRUNCATE TABLE checkins;
+    - reason: Remove a estrutura
+      sql: DROP TABLE checkins;
+    - reason: Sobram linhas
+      sql: DELETE FROM checkins WHERE gate = 'Norte';
