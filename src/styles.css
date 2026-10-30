@@ -127,6 +127,11 @@ details[open] > .node-head h2::after { content: ' ▾'; }
 .badge.facil, .badge.done { color: var(--good); }
 .badge.medio { color: var(--warn); }
 .badge.dificil { color: var(--bad); }
+.practice-intro { margin-top: 8px; padding-top: 24px; border-top: 1px solid var(--line); }
+.practice-intro h2 { font-size: 24px; }
+.practice-intro p { color: var(--muted); max-width: 60ch; margin: 6px 0 0; }
+.practice-path { margin-top: 20px; }
+.plan { margin: 8px 0 0; padding: 8px 10px; overflow-x: auto; background: var(--surface-2); border-radius: 4px; font: 13px/1.5 var(--mono); }
 .kind { flex: none; color: var(--muted); font-size: 12px; }
 .credit { margin-top: 12px; color: var(--muted); font-size: 13px; }
 .empty { color: var(--muted); font-size: 14px; margin: 6px 0; }

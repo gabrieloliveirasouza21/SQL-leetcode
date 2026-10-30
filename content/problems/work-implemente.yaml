@@ -1,0 +1,357 @@
+- slug: implemente-coluna-no-relatorio
+  title: Mais uma coluna no relatório
+  difficulty: facil
+  in: [implemente/Evoluir relatórios]
+  statement: |
+    Este relatório já funciona. O diretor pediu mais uma coluna: a cidade da casa, depois da data.
+
+    Altere a consulta. A ordem deve continuar por data e nome, com a cidade como terceiro critério.
+  starter: |
+    SELECT b.name, s.show_date
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id
+    ORDER BY s.show_date, b.name;
+  ordered: true
+  solution: |
+    SELECT b.name, s.show_date, v.city
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id
+    JOIN venues v ON v.id = s.venue_id
+    ORDER BY s.show_date, b.name, v.city;
+  hints:
+    - A informação nova está em outra tabela. Qual chave leva até ela?
+  explanation: |
+    Evoluir uma consulta existente é o caso mais comum no trabalho. Leia o que ela já faz antes de alterar e mantenha o que funciona.
+  traps:
+    - reason: Sem a ligação com venues
+      sql: SELECT b.name, s.show_date, v.city FROM shows s JOIN bands b ON b.id = s.band_id, venues v ORDER BY s.show_date, b.name, v.city;
+
+- slug: implemente-paginacao
+  title: Página 2 da agenda
+  difficulty: facil
+  in: [implemente/Evoluir relatórios]
+  statement: |
+    A agenda mostra 5 shows por página. Esta consulta traz a primeira página. Adapte para a segunda página, com a mesma ordem.
+  starter: |
+    SELECT id, show_date
+    FROM shows
+    ORDER BY show_date, id
+    LIMIT 5;
+  ordered: true
+  must_use: [OFFSET]
+  solution: |
+    SELECT id, show_date
+    FROM shows
+    ORDER BY show_date, id
+    LIMIT 5 OFFSET 5;
+  hints:
+    - OFFSET pula linhas antes de aplicar o LIMIT.
+  explanation: |
+    Paginar exige uma ordem única, senão linhas podem repetir ou sumir entre páginas. Em tabelas muito grandes, OFFSET fica caro, e a paginação por chave costuma ser melhor.
+  traps:
+    - reason: Terceira página
+      sql: SELECT id, show_date FROM shows ORDER BY show_date, id LIMIT 5 OFFSET 10;
+
+- slug: implemente-linha-de-total
+  title: Linha de total
+  difficulty: medio
+  in: [implemente/Evoluir relatórios]
+  statement: |
+    Este relatório mostra os ingressos pagos por portão de bilheteria, aqui representado pelo `status`. Acrescente no final uma linha com `TOTAL` e a soma de todos os ingressos, de todos os status.
+
+    As linhas por status vêm em ordem alfabética, e `TOTAL` vem por último.
+  starter: |
+    SELECT status, SUM(quantity) AS total
+    FROM tickets
+    GROUP BY status
+    ORDER BY status;
+  ordered: true
+  must_use: [UNION ALL]
+  solution: |
+    SELECT status, total
+    FROM (
+      SELECT status, SUM(quantity) AS total, 0 AS ordem
+      FROM tickets
+      GROUP BY status
+      UNION ALL
+      SELECT 'TOTAL', SUM(quantity), 1
+      FROM tickets
+    ) r
+    ORDER BY ordem, status;
+  hints:
+    - Com UNION ALL, o ORDER BY vale para o conjunto todo.
+    - Uma coluna auxiliar pode controlar a ordem sem aparecer no resultado.
+  explanation: |
+    A coluna auxiliar garante que o total fique no fim, mesmo quando um status vier depois de TOTAL na ordem alfabética. Alguns bancos oferecem `GROUP BY ROLLUP` para isso.
+  traps:
+    - reason: Sem a linha de total
+      sql: SELECT status, SUM(quantity) AS total FROM tickets GROUP BY status UNION ALL SELECT status, 0 FROM tickets WHERE 1 = 0 ORDER BY status;
+
+- slug: implemente-etapa-final-da-cte
+  title: Terminar o relatório em etapas
+  difficulty: medio
+  in: [implemente/Evoluir relatórios]
+  statement: |
+    A primeira etapa já calcula a receita paga por show. Complete a consulta: para cada banda com venda paga, retorne `name` e a receita total, da maior para a menor e, em empate, por nome.
+  starter: |
+    WITH receita AS (
+      SELECT s.id, s.band_id, SUM(t.quantity * s.ticket_price) AS valor
+      FROM shows s
+      JOIN tickets t ON t.show_id = s.id
+      WHERE t.status = 'pago'
+      GROUP BY s.id
+    )
+    -- Complete aqui
+    SELECT 1;
+  ordered: true
+  must_use: [receita]
+  solution: |
+    WITH receita AS (
+      SELECT s.id, s.band_id, SUM(t.quantity * s.ticket_price) AS valor
+      FROM shows s
+      JOIN tickets t ON t.show_id = s.id
+      WHERE t.status = 'pago'
+      GROUP BY s.id
+    )
+    SELECT b.name, SUM(r.valor) AS total
+    FROM receita r
+    JOIN bands b ON b.id = r.band_id
+    GROUP BY b.id
+    ORDER BY total DESC, b.name;
+  hints:
+    - Use a CTE como se fosse uma tabela.
+  explanation: |
+    Trabalhar sobre uma etapa pronta exige entender as colunas que ela expõe. Esse é o jeito normal de evoluir relatórios longos.
+  traps:
+    - reason: Agrupa por show
+      sql: WITH receita AS (SELECT s.id, s.band_id, SUM(t.quantity * s.ticket_price) AS valor FROM shows s JOIN tickets t ON t.show_id = s.id WHERE t.status = 'pago' GROUP BY s.id) SELECT b.name, r.valor FROM receita r JOIN bands b ON b.id = r.band_id ORDER BY r.valor DESC, b.name;
+
+- slug: implemente-campeao-por-genero
+  title: A banda mais cara de cada gênero
+  difficulty: dificil
+  in: [implemente/Evoluir relatórios]
+  statement: |
+    A CTE `medias` já calcula o preço médio por banda. Complete a consulta: para cada gênero, retorne o gênero, o nome da banda com a maior média e essa média arredondada para 2 casas. Empates entram. Ordene por gênero e nome.
+  starter: |
+    WITH medias AS (
+      SELECT b.id, b.name, b.genre, AVG(s.ticket_price) AS media
+      FROM bands b
+      JOIN shows s ON s.band_id = b.id
+      GROUP BY b.id
+    )
+    -- Complete aqui
+    SELECT 1;
+  ordered: true
+  must_use: [medias]
+  solution: |
+    WITH medias AS (
+      SELECT b.id, b.name, b.genre, AVG(s.ticket_price) AS media
+      FROM bands b
+      JOIN shows s ON s.band_id = b.id
+      GROUP BY b.id
+    ),
+    ranking AS (
+      SELECT genre, name, media, RANK() OVER (PARTITION BY genre ORDER BY media DESC) AS posicao
+      FROM medias
+    )
+    SELECT genre, name, ROUND(media, 2) AS media
+    FROM ranking
+    WHERE posicao = 1
+    ORDER BY genre, name;
+  hints:
+    - Acrescente uma segunda etapa, com uma window function.
+  explanation: |
+    Uma nova etapa evita mexer no que já funciona. Filtrar pela posição só é possível fora da etapa em que ela foi calculada.
+  traps:
+    - reason: Sem separar por gênero
+      sql: WITH medias AS (SELECT b.id, b.name, b.genre, AVG(s.ticket_price) AS media FROM bands b JOIN shows s ON s.band_id = b.id GROUP BY b.id), ranking AS (SELECT genre, name, media, RANK() OVER (ORDER BY media DESC) AS posicao FROM medias) SELECT genre, name, ROUND(media, 2) FROM ranking WHERE posicao = 1 ORDER BY genre, name;
+
+- slug: implemente-view-evoluida
+  title: Evoluir uma view em uso
+  difficulty: medio
+  in: [implemente/Evoluir relatórios]
+  statement: |
+    A view `agenda_publica` tem as colunas `banda` e `data`, e outras consultas dependem delas. O site precisa também de `cidade`.
+
+    Recrie a view mantendo as duas colunas atuais, na mesma ordem, e acrescente `cidade` no final.
+  setup: |
+    CREATE VIEW agenda_publica AS
+    SELECT b.name AS banda, s.show_date AS data
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id;
+  starter: |
+    -- A definição atual da view:
+    -- CREATE VIEW agenda_publica AS
+    -- SELECT b.name AS banda, s.show_date AS data
+    -- FROM shows s
+    -- JOIN bands b ON b.id = s.band_id;
+  ordered: true
+  must_use: [DROP VIEW, CREATE VIEW]
+  check: SELECT banda, data, cidade FROM agenda_publica ORDER BY data, banda, cidade;
+  solution: |
+    DROP VIEW agenda_publica;
+    CREATE VIEW agenda_publica AS
+    SELECT b.name AS banda, s.show_date AS data, v.city AS cidade
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id
+    JOIN venues v ON v.id = s.venue_id;
+  hints:
+    - Acrescentar colunas no fim é a forma de menor risco de mudar uma interface em uso.
+  explanation: |
+    Pense em uma view como um contrato. Adicionar colunas costuma ser seguro, enquanto remover ou renomear quebra quem depende dela.
+  traps:
+    - reason: Renomeia as colunas existentes
+      sql: DROP VIEW agenda_publica; CREATE VIEW agenda_publica AS SELECT b.name AS nome, s.show_date AS dia, v.city AS cidade FROM shows s JOIN bands b ON b.id = s.band_id JOIN venues v ON v.id = s.venue_id;
+
+- slug: implemente-coluna-preenchida
+  title: Coluna nova com dados
+  difficulty: medio
+  in: [implemente/Evoluir o banco]
+  statement: |
+    Escreva uma migração em duas etapas. Adicione em `shows` a coluna `vendidos`, inteira, com padrão 0. Depois, preencha a coluna com o total de ingressos pagos de cada show.
+  ordered: true
+  must_use: [ALTER TABLE, UPDATE]
+  check: SELECT id, vendidos FROM shows ORDER BY id;
+  solution: |
+    ALTER TABLE shows ADD COLUMN vendidos INTEGER DEFAULT 0;
+    UPDATE shows
+    SET vendidos = COALESCE((
+      SELECT SUM(t.quantity)
+      FROM tickets t
+      WHERE t.show_id = shows.id AND t.status = 'pago'
+    ), 0);
+  hints:
+    - No UPDATE, uma subconsulta correlacionada pode calcular o valor de cada linha.
+    - Se o show não tiver venda, a subconsulta devolve NULL.
+  explanation: |
+    Adicionar a coluna e preenchê-la são as duas etapas clássicas de uma migração. Em tabelas grandes, o preenchimento costuma ser feito em lotes.
+  traps:
+    - reason: Sem tratar shows sem venda
+      sql: ALTER TABLE shows ADD COLUMN vendidos INTEGER DEFAULT 0; UPDATE shows SET vendidos = (SELECT SUM(t.quantity) FROM tickets t WHERE t.show_id = shows.id AND t.status = 'pago');
+    - reason: Conta todos os status
+      sql: ALTER TABLE shows ADD COLUMN vendidos INTEGER DEFAULT 0; UPDATE shows SET vendidos = COALESCE((SELECT SUM(t.quantity) FROM tickets t WHERE t.show_id = shows.id), 0);
+
+- slug: implemente-recriar-com-regra
+  title: Restrição em tabela que já existe
+  difficulty: dificil
+  in: [implemente/Evoluir o banco]
+  statement: |
+    `merch` precisa recusar estoque negativo, mas o SQLite não permite adicionar `CHECK` a uma tabela existente. A saída é recriá-la.
+
+    Em uma transação, crie uma tabela nova com as mesmas colunas e a regra `stock >= 0`, copie os dados, apague a antiga e renomeie a nova para `merch`. Mantenha `band_id` referenciando `bands`.
+  ordered: true
+  must_use: [BEGIN, COMMIT, RENAME]
+  check: SELECT id, band_id, item, price, stock FROM merch ORDER BY id;
+  accepts:
+    - INSERT INTO merch (band_id, item, price, stock) VALUES (NULL, 'Teste', 10, 0);
+  rejects:
+    - INSERT INTO merch (band_id, item, price, stock) VALUES (NULL, 'Negativo', 10, -1);
+    - INSERT INTO merch (band_id, item, price, stock) VALUES (999999, 'Sem banda', 10, 1);
+  solution: |
+    BEGIN;
+    CREATE TABLE merch_nova (
+      id INTEGER PRIMARY KEY,
+      band_id INTEGER REFERENCES bands(id),
+      item TEXT NOT NULL,
+      price REAL NOT NULL,
+      stock INTEGER NOT NULL CHECK (stock >= 0)
+    );
+    INSERT INTO merch_nova SELECT id, band_id, item, price, stock FROM merch;
+    DROP TABLE merch;
+    ALTER TABLE merch_nova RENAME TO merch;
+    COMMIT;
+  hints:
+    - Na ordem, crie, copie, apague e renomeie.
+    - A transação garante que ninguém veja a tabela pela metade.
+  explanation: |
+    Esse é o caminho recomendado pela documentação do SQLite para mudanças que ALTER TABLE não cobre. Outros bancos permitem `ADD CONSTRAINT`, mas verificam os dados existentes ao adicionar a regra.
+  traps:
+    - reason: Sem a regra
+      sql: BEGIN; CREATE TABLE merch_nova (id INTEGER PRIMARY KEY, band_id INTEGER REFERENCES bands(id), item TEXT NOT NULL, price REAL NOT NULL, stock INTEGER NOT NULL); INSERT INTO merch_nova SELECT id, band_id, item, price, stock FROM merch; DROP TABLE merch; ALTER TABLE merch_nova RENAME TO merch; COMMIT;
+    - reason: Perde os dados
+      sql: BEGIN; CREATE TABLE merch_nova (id INTEGER PRIMARY KEY, band_id INTEGER REFERENCES bands(id), item TEXT NOT NULL, price REAL NOT NULL, stock INTEGER NOT NULL CHECK (stock >= 0)); DROP TABLE merch; ALTER TABLE merch_nova RENAME TO merch; COMMIT;
+
+- slug: implemente-trigger-de-auditoria
+  title: Quem mudou o preço?
+  difficulty: dificil
+  in: [implemente/Evoluir o banco]
+  statement: |
+    A tabela `price_log` já existe, com as colunas `show_id`, `old_price` e `new_price`. Crie um trigger que registre nela toda alteração de `ticket_price` em `shows`.
+
+    Se um UPDATE não mudar o preço, nada deve ser registrado. O corretor atualiza preços depois de criar o trigger.
+  setup: CREATE TABLE price_log (show_id INTEGER, old_price REAL, new_price REAL);
+  ordered: true
+  must_use: [CREATE TRIGGER]
+  check: |
+    UPDATE shows SET ticket_price = ticket_price + 1 WHERE id = (SELECT MIN(id) FROM shows);
+    UPDATE shows SET ticket_price = ticket_price WHERE id = (SELECT MAX(id) FROM shows);
+    SELECT show_id, old_price, new_price FROM price_log;
+  solution: |
+    CREATE TRIGGER trg_preco
+    AFTER UPDATE OF ticket_price ON shows
+    WHEN OLD.ticket_price <> NEW.ticket_price
+    BEGIN
+      INSERT INTO price_log (show_id, old_price, new_price)
+      VALUES (NEW.id, OLD.ticket_price, NEW.ticket_price);
+    END;
+  hints:
+    - Em um trigger, OLD é a linha antes da alteração, e NEW é a linha depois.
+    - A cláusula WHEN decide se o trigger age.
+  explanation: |
+    Auditoria é um bom uso de triggers, porque vale para qualquer sistema que altere a tabela. Mantenha o corpo simples, porque ele roda dentro de cada escrita.
+  traps:
+    - reason: Registra UPDATE sem mudança
+      sql: CREATE TRIGGER t AFTER UPDATE OF ticket_price ON shows BEGIN INSERT INTO price_log VALUES (NEW.id, OLD.ticket_price, NEW.ticket_price); END;
+    - reason: Valores invertidos
+      sql: CREATE TRIGGER t AFTER UPDATE OF ticket_price ON shows WHEN OLD.ticket_price <> NEW.ticket_price BEGIN INSERT INTO price_log VALUES (NEW.id, NEW.ticket_price, OLD.ticket_price); END;
+
+- slug: implemente-upsert
+  title: Inserir ou atualizar
+  difficulty: medio
+  in: [implemente/Evoluir o banco]
+  statement: |
+    A tabela `daily_sales` guarda um total por `show_id`, que é a chave primária. O job de vendas precisa somar 3 ingressos ao show de menor `id`: se a linha não existir, ela é criada com 3; se existir, soma 3.
+
+    Neste banco, ela já tem esse show com total 10.
+  setup: |
+    CREATE TABLE daily_sales (show_id INTEGER PRIMARY KEY, total INTEGER NOT NULL);
+    INSERT INTO daily_sales SELECT MIN(id), 10 FROM shows;
+  ordered: true
+  must_use: [ON CONFLICT]
+  check: SELECT show_id, total FROM daily_sales ORDER BY show_id;
+  solution: |
+    INSERT INTO daily_sales (show_id, total)
+    SELECT MIN(id), 3 FROM shows WHERE true
+    ON CONFLICT (show_id) DO UPDATE SET total = total + excluded.total;
+  hints:
+    - excluded representa a linha que o INSERT tentou inserir.
+    - Em SQLite, um INSERT com SELECT e ON CONFLICT precisa de WHERE, para evitar ambiguidade na leitura.
+  explanation: |
+    Upsert evita a corrida entre consultar e depois inserir, porque tudo acontece em um único comando atômico. No PostgreSQL, a sintaxe é a mesma.
+  traps:
+    - reason: Substitui em vez de somar
+      sql: INSERT INTO daily_sales (show_id, total) SELECT MIN(id), 3 FROM shows WHERE true ON CONFLICT (show_id) DO UPDATE SET total = excluded.total;
+
+- slug: implemente-exclusao-logica
+  title: Apagar sem perder
+  difficulty: medio
+  in: [implemente/Evoluir o banco]
+  statement: |
+    Bandas não podem mais ser apagadas de verdade. Adicione em `bands` a coluna `deleted_at`, de texto e opcional. Marque as bandas encerradas com a data `2026-10-30`. Depois, crie a view `bandas_ativas` com `id` e `name` das bandas não marcadas.
+  ordered: true
+  must_use: [ALTER TABLE, UPDATE, CREATE VIEW]
+  check: SELECT id, name FROM bandas_ativas ORDER BY id;
+  solution: |
+    ALTER TABLE bands ADD COLUMN deleted_at TEXT;
+    UPDATE bands SET deleted_at = '2026-10-30' WHERE disbanded_year IS NOT NULL;
+    CREATE VIEW bandas_ativas AS
+    SELECT id, name
+    FROM bands
+    WHERE deleted_at IS NULL;
+  hints:
+    - A view evita que cada consulta precise lembrar desse filtro.
+  explanation: |
+    Exclusão lógica preserva histórico e chaves estrangeiras. O custo é lembrar do filtro em toda consulta, e por isso uma view ajuda.
+  traps:
+    - reason: Marca as bandas erradas
+      sql: ALTER TABLE bands ADD COLUMN deleted_at TEXT; UPDATE bands SET deleted_at = '2026-10-30' WHERE disbanded_year IS NULL; CREATE VIEW bandas_ativas AS SELECT id, name FROM bands WHERE deleted_at IS NULL;

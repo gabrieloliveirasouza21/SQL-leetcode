@@ -1,6 +1,6 @@
 import initSqlJs, { type SqlJsStatic } from 'sql.js';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { dataset, problems, topicProblemSlugs, topics } from '../src/content';
+import { dataset, practice, problems, topicProblemSlugs, topics } from '../src/content';
 import { expectedOnSample, judge } from '../src/judge/judge';
 
 const sqlProblems = problems.filter((p) => !p.options);
@@ -18,13 +18,13 @@ describe('conteúdo', () => {
 
   it('todo problema está na trilha e toda referência existe', () => {
     const known = new Set(problems.map((p) => p.slug));
-    const placed = new Set(topics.flatMap(topicProblemSlugs));
+    const placed = new Set([...topics, ...practice].flatMap(topicProblemSlugs));
     expect(problems.filter((p) => !placed.has(p.slug)).map((p) => p.slug)).toEqual([]);
     expect([...placed].filter((slug) => !known.has(slug))).toEqual([]);
   });
 
   it('todo tópico e subtópico tem problema', () => {
-    for (const topic of topics) {
+    for (const topic of [...topics, ...practice]) {
       expect(topicProblemSlugs(topic).length, topic.title).toBeGreaterThan(0);
       for (const subtopic of topic.subtopics) expect(subtopic.problems.length, subtopic.name).toBeGreaterThan(0);
     }
@@ -55,7 +55,7 @@ describe('conteúdo', () => {
       expect(expectedOnSample(SQL, dataset, problem).rows.length).toBeGreaterThan(0);
     });
 
-    it('a ordem esperada é determinística', () => {
+    it.runIf(problem.ordered)('a ordem esperada é determinística', () => {
       // O pragma inverte a ordem não garantida: um ORDER BY incompleto muda o resultado.
       const scrambled = `PRAGMA reverse_unordered_selects = ON;\n${dataset.schema}`;
       const baseline = {
@@ -65,6 +65,19 @@ describe('conteúdo', () => {
       expect(expectedOnSample(SQL, { ...dataset, schema: scrambled }, problem)).toEqual(baseline.sample);
       expect(expectedOnSample(SQL, { ...dataset, schema: scrambled, sample: dataset.hidden }, problem)).toEqual(baseline.hidden);
     });
+
+    if (problem.starter) {
+      it('o código inicial é reprovado', () => {
+        expect(judge(SQL, dataset, problem, problem.starter!).status).not.toBe('accepted');
+      });
+    }
+
+    // Em Otimize, o ponto de partida já responde certo. O que falta é só o plano melhorar.
+    if (topicProblemSlugs(practice.find((t) => t.id === 'otimize')!).includes(problem.slug) && problem.starter && !problem.plan_of) {
+      it('o código inicial acerta o resultado e só falha no plano', () => {
+        expect(judge(SQL, dataset, problem, problem.starter!)).toMatchObject({ status: 'wrong', stage: 'plan' });
+      });
+    }
 
     it.each(problem.traps.map((t) => [t.reason, t.sql] as const))('reprova: %s', (_reason, sql) => {
       expect(judge(SQL, dataset, problem, sql).status).not.toBe('accepted');

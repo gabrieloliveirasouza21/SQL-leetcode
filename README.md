@@ -10,6 +10,11 @@ npm run dev
 npm test
 ```
 
+## Seções da trilha
+
+- **Roadmap:** os 16 tópicos, em `topics` no `content/roadmap.yaml`.
+- **Como no trabalho:** Conserte, Implemente e Otimize, em `practice` no mesmo arquivo. Os exercícios já começam com código no editor. Em Otimize, o corretor também mede o plano de execução.
+
 ## Como a correção funciona
 
 Cada envio roda em um banco novo, dentro de um Web Worker com limite de 4 segundos.
@@ -33,6 +38,9 @@ Crie um arquivo em `content/problems/`, com um problema ou uma lista deles. O ca
 | `setup` | Opcional. SQL aplicado antes do comando do aluno, como uma view que ele vai alterar |
 | `must_use`, `forbid` | Opcional. Termos exigidos ou proibidos no SQL enviado. Comentários e textos entre aspas não contam |
 | `accepts`, `rejects` | Opcional. Comandos que o banco precisa aceitar ou recusar. Use para testar restrições |
+| `starter` | Opcional. Código que já vem no editor, como uma query quebrada ou incompleta. O teste exige que ele seja reprovado |
+| `plan_must`, `plan_forbid` | Opcional. Trechos exigidos ou proibidos no `EXPLAIN QUERY PLAN` |
+| `plan_of` | Opcional. Consulta cujo plano é medido. Sem isso, mede o último comando do aluno que retorna linhas |
 | `options`, `answer` | Só em problemas conceituais. Lista de `text` e `why`, e o índice da resposta certa. Esses problemas não têm `solution` |
 | `solution` | Solução de referência |
 | `hints`, `explanation` | Dicas progressivas e solução comentada |

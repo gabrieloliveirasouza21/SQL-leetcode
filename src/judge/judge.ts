@@ -26,6 +26,11 @@ export interface JudgedProblem {
   /** Comandos que o banco precisa aceitar ou recusar depois do comando do aluno. */
   accepts?: string[];
   rejects?: string[];
+  /** Consulta cujo plano é medido. Sem isso, mede o último comando do aluno que retorna linhas. */
+  plan_of?: string;
+  /** Trechos que precisam aparecer ou não podem aparecer no EXPLAIN QUERY PLAN. */
+  plan_must?: string[];
+  plan_forbid?: string[];
 }
 
 export type Verdict =
@@ -34,20 +39,41 @@ export type Verdict =
   | { status: 'wrong'; stage: 'sample'; reason: string; expected: ResultSet; actual: ResultSet | null }
   | { status: 'wrong'; stage: 'hidden'; reason: string }
   | { status: 'wrong'; stage: 'rule'; reason: string }
-  | { status: 'wrong'; stage: 'behavior'; reason: string };
+  | { status: 'wrong'; stage: 'behavior'; reason: string }
+  | { status: 'wrong'; stage: 'plan'; reason: string; plan: string[] };
 
 type Stage = 'sample' | 'hidden';
 
 /** Devolve o resultado do último comando que produz colunas, ou null se nenhum produzir. */
-export function runStatements(db: Database, sql: string): ResultSet | null {
+export function runStatements(db: Database, sql: string, onResult?: (statement: string) => void): ResultSet | null {
   let last: ResultSet | null = null;
   for (const stmt of db.iterateStatements(sql)) {
     const columns = stmt.getColumnNames();
+    const text = stmt.getSQL();
     const rows: Cell[][] = [];
     while (stmt.step()) rows.push(stmt.get() as Cell[]);
-    if (columns.length > 0) last = { columns, rows };
+    if (columns.length > 0) {
+      last = { columns, rows };
+      onResult?.(text);
+    }
   }
   return last;
+}
+
+/** Linhas de detalhe do plano, como `SEARCH shows USING INDEX i (band_id=?)`. */
+function queryPlan(db: Database, statement: string): string[] {
+  const plan = runStatements(db, `EXPLAIN QUERY PLAN ${statement}`);
+  const detail = plan?.columns.indexOf('detail') ?? -1;
+  return plan ? plan.rows.map((row) => String(row[detail])) : [];
+}
+
+function planProblem(problem: JudgedProblem, plan: string[]): string | null {
+  const text = plan.join('\n').toLowerCase();
+  const banned = problem.plan_forbid?.find((term) => text.includes(term.toLowerCase()));
+  if (banned) return `O plano de execução ainda contém "${banned}".`;
+  const missing = problem.plan_must?.find((term) => !text.includes(term.toLowerCase()));
+  if (missing) return `O plano de execução deveria conter "${missing}".`;
+  return null;
 }
 
 function openDb(SQL: SqlJsStatic, dataset: Dataset, stage: Stage, setup?: string): Database {
@@ -89,9 +115,14 @@ function behaviorProblem(db: Database, problem: JudgedProblem): string | null {
 function attempt(SQL: SqlJsStatic, dataset: Dataset, stage: Stage, problem: JudgedProblem, sql: string) {
   const db = openDb(SQL, dataset, stage, problem.setup);
   try {
-    const own = runStatements(db, sql);
+    let measured = problem.plan_of;
+    const own = runStatements(db, sql, (statement) => {
+      if (!problem.plan_of) measured = statement;
+    });
+    const measures = problem.plan_must || problem.plan_forbid;
+    const plan = measures && measured ? queryPlan(db, measured) : [];
     const result = problem.check ? runStatements(db, problem.check) : own;
-    return { result, behavior: behaviorProblem(db, problem) };
+    return { result, plan, behavior: behaviorProblem(db, problem) };
   } finally {
     db.close();
   }
@@ -188,6 +219,8 @@ export function judge(SQL: SqlJsStatic, dataset: Dataset, problem: JudgedProblem
         : { status: 'wrong', stage, reason };
     }
     if (outcome.behavior) return { status: 'wrong', stage: 'behavior', reason: outcome.behavior };
+    const slow = planProblem(problem, outcome.plan);
+    if (slow) return { status: 'wrong', stage: 'plan', reason: slow, plan: outcome.plan };
   }
   return { status: 'accepted' };
 }

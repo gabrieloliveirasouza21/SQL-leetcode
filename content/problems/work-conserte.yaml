@@ -1,0 +1,389 @@
+- slug: conserte-nulo
+  title: O relatório de quem não tem veículo
+  difficulty: facil
+  in: [conserte/Erros de lógica]
+  statement: |
+    A assessoria reclama que a lista de jornalistas sem veículo cadastrado sempre vem vazia, mesmo havendo contatos com `outlet` nulo.
+
+    Corrija a consulta. Ela deve retornar `full_name` em ordem alfabética.
+  starter: |
+    SELECT full_name
+    FROM press_contacts
+    WHERE outlet = NULL
+    ORDER BY full_name;
+  ordered: true
+  solution: |
+    SELECT full_name
+    FROM press_contacts
+    WHERE outlet IS NULL
+    ORDER BY full_name;
+  hints:
+    - A consulta não dá erro. Ela roda e não encontra nada. O que `= NULL` devolve?
+  explanation: |
+    Consultas assim são traiçoeiras, porque nenhum erro aparece. Quando um filtro retorna vazio, teste a condição sozinha antes de culpar os dados.
+  traps:
+    - reason: Inverte a lógica
+      sql: SELECT full_name FROM press_contacts WHERE outlet IS NOT NULL ORDER BY full_name;
+
+- slug: conserte-precedencia
+  title: Pedidos pequenos no relatório
+  difficulty: facil
+  in: [conserte/Erros de lógica]
+  statement: |
+    O relatório deveria listar pedidos pagos ou reservados com 2 ingressos ou mais, mas pedidos pagos de 1 ingresso estão aparecendo.
+
+    Corrija a consulta, que retorna `id` por ordem de `id`.
+  starter: |
+    SELECT id
+    FROM tickets
+    WHERE status = 'pago' OR status = 'reservado' AND quantity >= 2
+    ORDER BY id;
+  ordered: true
+  solution: |
+    SELECT id
+    FROM tickets
+    WHERE (status = 'pago' OR status = 'reservado') AND quantity >= 2
+    ORDER BY id;
+  hints:
+    - Qual operador é avaliado primeiro, AND ou OR?
+  explanation: |
+    AND é avaliado antes de OR, então a quantidade só valia para reservas. Ao misturar os dois, use parênteses, mesmo quando a precedência já ajudar.
+  traps:
+    - reason: Remove os reservados
+      sql: SELECT id FROM tickets WHERE status = 'pago' AND quantity >= 2 ORDER BY id;
+
+- slug: conserte-agregacao-no-where
+  title: Erro no filtro de contagem
+  difficulty: facil
+  in: [conserte/Erros de lógica]
+  statement: |
+    Esta consulta deveria listar as casas com pelo menos 2 shows, mas dá erro ao executar. Rode, leia a mensagem e corrija. Retorne `venue_id` e a quantidade, por `venue_id`.
+  starter: |
+    SELECT venue_id, COUNT(*) AS total
+    FROM shows
+    WHERE COUNT(*) >= 2
+    GROUP BY venue_id
+    ORDER BY venue_id;
+  ordered: true
+  solution: |
+    SELECT venue_id, COUNT(*) AS total
+    FROM shows
+    GROUP BY venue_id
+    HAVING COUNT(*) >= 2
+    ORDER BY venue_id;
+  hints:
+    - Leia a mensagem de erro com calma. Ela diz o que foi usado de forma indevida.
+  explanation: |
+    WHERE roda antes de agrupar, quando a contagem ainda não existe. Mensagens como "misuse of aggregate" apontam para esse erro.
+  traps:
+    - reason: Remove o filtro
+      sql: SELECT venue_id, COUNT(*) AS total FROM shows GROUP BY venue_id ORDER BY venue_id;
+
+- slug: conserte-data-com-hora
+  title: O dia que sumiu do relatório
+  difficulty: medio
+  in: [conserte/Erros de lógica]
+  statement: |
+    A segurança pediu as entradas de `2026-03-14`, mas o relatório sempre retorna zero linhas. `scanned_at` guarda data e hora.
+
+    Corrija a consulta, que retorna `id` e `gate` por `id`.
+  starter: |
+    SELECT id, gate
+    FROM checkins
+    WHERE scanned_at BETWEEN '2026-03-14' AND '2026-03-14'
+    ORDER BY id;
+  ordered: true
+  solution: |
+    SELECT id, gate
+    FROM checkins
+    WHERE scanned_at >= '2026-03-14' AND scanned_at < '2026-03-15'
+    ORDER BY id;
+  hints:
+    - Compare '2026-03-14 18:05:12' com '2026-03-14' como textos. Qual é maior?
+  explanation: |
+    Um valor com hora é maior que a data sozinha, então o BETWEEN nunca é verdadeiro. Em relatórios por período, um intervalo meio aberto com `>=` e `<` evita esse erro.
+  traps:
+    - reason: Perde o fim do dia
+      sql: SELECT id, gate FROM checkins WHERE scanned_at BETWEEN '2026-03-14' AND '2026-03-14 19:00:00' ORDER BY id;
+
+- slug: conserte-divisao-inteira
+  title: A média que vem sempre redonda
+  difficulty: medio
+  in: [conserte/Erros de lógica]
+  statement: |
+    A média de ingressos por pedido, por show, parece sempre um número inteiro. Algo está cortando as casas decimais.
+
+    Corrija. Retorne `show_id` e a média com 2 casas, por `show_id`, considerando todos os pedidos.
+  starter: |
+    SELECT show_id, ROUND(SUM(quantity) / COUNT(*), 2) AS media
+    FROM tickets
+    GROUP BY show_id
+    ORDER BY show_id;
+  ordered: true
+  solution: |
+    SELECT show_id, ROUND(SUM(quantity) * 1.0 / COUNT(*), 2) AS media
+    FROM tickets
+    GROUP BY show_id
+    ORDER BY show_id;
+  hints:
+    - Em SQLite, inteiro dividido por inteiro resulta em inteiro.
+  explanation: |
+    Multiplicar por `1.0` torna a divisão decimal, e `AVG(quantity)` também resolve. Esse erro passa despercebido porque o resultado parece plausível.
+  traps:
+    - reason: Arredondar depois não recupera os decimais
+      sql: SELECT show_id, ROUND(ROUND(SUM(quantity) / COUNT(*)), 2) FROM tickets GROUP BY show_id ORDER BY show_id;
+
+- slug: conserte-ordem-de-texto
+  title: 90 mais caro que 320?
+  difficulty: medio
+  in: [conserte/Erros de lógica]
+  statement: |
+    O ranking de preços mostra um ingresso de 90 acima de um de 320. A coluna de exibição precisa continuar como texto, mas a ordem está errada.
+
+    Corrija. Retorne `id` e o preço como texto, do maior preço para o menor e, em caso de empate, por `id`.
+  starter: |
+    SELECT id, CAST(ticket_price AS TEXT) AS preco
+    FROM shows
+    ORDER BY preco DESC, id;
+  ordered: true
+  solution: |
+    SELECT id, CAST(ticket_price AS TEXT) AS preco
+    FROM shows
+    ORDER BY ticket_price DESC, id;
+  hints:
+    - Como textos, '90' vem depois de '320', porque 9 vem depois de 3.
+  explanation: |
+    O apelido no ORDER BY usa o valor convertido. Ordene pela coluna original e use o texto só para exibir.
+  traps:
+    - reason: Devolve número em vez de texto
+      sql: SELECT id, ticket_price FROM shows ORDER BY ticket_price DESC, id;
+
+- slug: conserte-update-amplo
+  title: A promoção que atingiu tudo
+  difficulty: facil
+  in: [conserte/Erros de lógica]
+  statement: |
+    Este script de promoção deveria dar 10% de desconto só em produtos com estoque acima de 10, mas o revisor percebeu que ele atinge todos os produtos.
+
+    Corrija o script antes que ele rode.
+  starter: |
+    UPDATE merch
+    SET price = price * 0.9;
+  ordered: true
+  check: SELECT id, ROUND(price, 2) FROM merch ORDER BY id;
+  solution: |
+    UPDATE merch
+    SET price = price * 0.9
+    WHERE stock > 10;
+  hints:
+    - Sem WHERE, um UPDATE vale para a tabela inteira.
+  explanation: |
+    Revisar scripts de alteração é uma das tarefas mais importantes de uma equipe. Antes de rodar, troque o UPDATE por um SELECT com o mesmo WHERE e confira as linhas.
+  traps:
+    - reason: Inclui exatamente 10
+      sql: UPDATE merch SET price = price * 0.9 WHERE stock >= 5;
+
+- slug: conserte-where-no-left-join
+  title: Bandas somem do relatório
+  difficulty: medio
+  in: [conserte/Joins e agregações]
+  statement: |
+    O relatório deveria mostrar todas as bandas com a quantidade de ingressos pagos, inclusive quem não vendeu nada. Depois da última alteração, várias sumiram.
+
+    Corrija. Retorne `name` e o total, com 0 para quem não vendeu, por `name`.
+  starter: |
+    SELECT b.name, COALESCE(SUM(t.quantity), 0) AS total
+    FROM bands b
+    LEFT JOIN shows s ON s.band_id = b.id
+    LEFT JOIN tickets t ON t.show_id = s.id
+    WHERE t.status = 'pago'
+    GROUP BY b.id
+    ORDER BY b.name;
+  ordered: true
+  solution: |
+    SELECT b.name, COALESCE(SUM(t.quantity), 0) AS total
+    FROM bands b
+    LEFT JOIN shows s ON s.band_id = b.id
+    LEFT JOIN tickets t ON t.show_id = s.id AND t.status = 'pago'
+    GROUP BY b.id
+    ORDER BY b.name;
+  hints:
+    - O COALESCE está lá, mas nenhuma banda aparece com 0. Quem removeu essas linhas?
+  explanation: |
+    Um filtro no WHERE sobre a tabela da direita elimina as linhas sem par, e o LEFT JOIN vira INNER JOIN. Esse é um dos bugs mais comuns em relatórios.
+  traps:
+    - reason: Conta todos os status
+      sql: SELECT b.name, COALESCE(SUM(t.quantity), 0) AS total FROM bands b LEFT JOIN shows s ON s.band_id = b.id LEFT JOIN tickets t ON t.show_id = s.id GROUP BY b.id ORDER BY b.name;
+
+- slug: conserte-count-do-left-join
+  title: Banda sem show com 1 show
+  difficulty: facil
+  in: [conserte/Joins e agregações]
+  statement: |
+    O painel mostra 1 show para bandas que não têm nenhum. Corrija a consulta, que retorna `name` e a quantidade de shows, por `name`.
+  starter: |
+    SELECT b.name, COUNT(*) AS total
+    FROM bands b
+    LEFT JOIN shows s ON s.band_id = b.id
+    GROUP BY b.id
+    ORDER BY b.name;
+  ordered: true
+  solution: |
+    SELECT b.name, COUNT(s.id) AS total
+    FROM bands b
+    LEFT JOIN shows s ON s.band_id = b.id
+    GROUP BY b.id
+    ORDER BY b.name;
+  hints:
+    - O LEFT JOIN gera uma linha mesmo sem par. O que COUNT(*) conta?
+  explanation: |
+    COUNT(*) conta linhas, inclusive a preenchida com NULL. COUNT de uma coluna da direita ignora esse NULL.
+  traps:
+    - reason: INNER JOIN esconde as bandas sem show
+      sql: SELECT b.name, COUNT(s.id) AS total FROM bands b JOIN shows s ON s.band_id = b.id GROUP BY b.id ORDER BY b.name;
+
+- slug: conserte-distinct-escondendo
+  title: O DISTINCT que escondia o bug
+  difficulty: medio
+  in: [conserte/Joins e agregações]
+  statement: |
+    O relatório de bandas e cidades onde elas tocam mostra cidades em que a banda nunca esteve. Alguém adicionou `DISTINCT` para disfarçar as linhas repetidas.
+
+    Corrija a causa. Retorne pares distintos de `name` e `city`, ordenados por banda e por cidade.
+  starter: |
+    SELECT DISTINCT b.name, v.city
+    FROM bands b, shows s, venues v
+    WHERE s.band_id = b.id
+    ORDER BY b.name, v.city;
+  ordered: true
+  solution: |
+    SELECT DISTINCT b.name, v.city
+    FROM bands b
+    JOIN shows s ON s.band_id = b.id
+    JOIN venues v ON v.id = s.venue_id
+    ORDER BY b.name, v.city;
+  hints:
+    - Conte quantas linhas a consulta gera sem o DISTINCT.
+    - Toda tabela no FROM precisa de uma ligação com as outras.
+  explanation: |
+    Faltava ligar `venues` a `shows`, e cada show foi combinado com todas as casas. Quando um DISTINCT aparece para "resolver" repetições, desconfie do JOIN.
+  traps:
+    - reason: Sem DISTINCT, repete pares
+      sql: SELECT b.name, v.city FROM bands b JOIN shows s ON s.band_id = b.id JOIN venues v ON v.id = s.venue_id ORDER BY b.name, v.city;
+
+- slug: conserte-soma-inflada
+  title: A receita que dobrou
+  difficulty: dificil
+  in: [conserte/Joins e agregações]
+  statement: |
+    Depois que alguém adicionou a contagem de produtos ao relatório, o total de ingressos pagos por banda ficou inflado. Duas relações um-para-muitos estão se multiplicando.
+
+    Corrija. Para cada banda com show, retorne `name`, os ingressos pagos e a quantidade de produtos, com 0 quando não houver, por `name`.
+  starter: |
+    SELECT b.name, COALESCE(SUM(t.quantity), 0) AS ingressos, COUNT(m.id) AS produtos
+    FROM bands b
+    JOIN shows s ON s.band_id = b.id
+    LEFT JOIN tickets t ON t.show_id = s.id AND t.status = 'pago'
+    LEFT JOIN merch m ON m.band_id = b.id
+    GROUP BY b.id
+    ORDER BY b.name;
+  ordered: true
+  solution: |
+    SELECT
+      b.name,
+      COALESCE((
+        SELECT SUM(t.quantity)
+        FROM shows s
+        JOIN tickets t ON t.show_id = s.id
+        WHERE s.band_id = b.id AND t.status = 'pago'
+      ), 0) AS ingressos,
+      (SELECT COUNT(*) FROM merch m WHERE m.band_id = b.id) AS produtos
+    FROM bands b
+    WHERE EXISTS (SELECT 1 FROM shows s WHERE s.band_id = b.id)
+    ORDER BY b.name;
+  hints:
+    - Se uma banda tem 2 pedidos e 2 produtos, quantas linhas o JOIN gera?
+    - Calcule cada total separadamente, em subconsultas ou CTEs.
+  explanation: |
+    Juntar duas relações um-para-muitos gera um produto cartesiano por banda. Os totais ficam errados sem nenhum erro. Agregue cada lado antes de juntar.
+  traps:
+    - reason: COUNT DISTINCT corrige só os produtos
+      sql: SELECT b.name, COALESCE(SUM(t.quantity), 0), COUNT(DISTINCT m.id) FROM bands b JOIN shows s ON s.band_id = b.id LEFT JOIN tickets t ON t.show_id = s.id AND t.status = 'pago' LEFT JOIN merch m ON m.band_id = b.id GROUP BY b.id ORDER BY b.name;
+
+- slug: conserte-lag-sem-particao
+  title: Comparando bandas diferentes
+  difficulty: medio
+  in: [conserte/Recursos avançados]
+  statement: |
+    O relatório mostra o preço do show anterior, mas o primeiro show de cada banda aparece comparado com a banda de antes. Só o primeiro show de cada banda deveria ter nulo.
+
+    Corrija. Retorne `band_id`, `show_date`, `ticket_price` e o preço anterior, por banda, data e `id`.
+  starter: |
+    SELECT
+      band_id,
+      show_date,
+      ticket_price,
+      LAG(ticket_price) OVER (ORDER BY band_id, show_date, id) AS anterior
+    FROM shows
+    ORDER BY band_id, show_date, id;
+  ordered: true
+  solution: |
+    SELECT
+      band_id,
+      show_date,
+      ticket_price,
+      LAG(ticket_price) OVER (PARTITION BY band_id ORDER BY show_date, id) AS anterior
+    FROM shows
+    ORDER BY band_id, show_date, id;
+  hints:
+    - O que faz a janela recomeçar a cada banda?
+  explanation: |
+    Ordenar por banda dentro de OVER não separa os grupos. Quem reinicia a janela é PARTITION BY.
+  traps:
+    - reason: Olha para a frente
+      sql: SELECT band_id, show_date, ticket_price, LEAD(ticket_price) OVER (PARTITION BY band_id ORDER BY show_date, id) FROM shows ORDER BY band_id, show_date, id;
+
+- slug: conserte-recursao-invertida
+  title: A árvore de cabeça para baixo
+  difficulty: dificil
+  in: [conserte/Recursos avançados]
+  statement: |
+    A consulta deveria listar os alunos de `Ana Ferro`, diretos e indiretos, com o nível de distância. Mas ela mostra as pessoas erradas, ou nenhuma.
+
+    Corrija. Retorne `name` e o nível, por nível e nome. Ana não entra no resultado.
+  starter: |
+    WITH RECURSIVE linhagem (id, name, mentor_id, nivel) AS (
+      SELECT id, name, mentor_id, 0
+      FROM members
+      WHERE name = 'Ana Ferro'
+      UNION ALL
+      SELECT m.id, m.name, m.mentor_id, l.nivel + 1
+      FROM members m
+      JOIN linhagem l ON m.id = l.mentor_id
+    )
+    SELECT name, nivel
+    FROM linhagem
+    WHERE nivel > 0
+    ORDER BY nivel, name;
+  ordered: true
+  solution: |
+    WITH RECURSIVE linhagem (id, name, mentor_id, nivel) AS (
+      SELECT id, name, mentor_id, 0
+      FROM members
+      WHERE name = 'Ana Ferro'
+      UNION ALL
+      SELECT m.id, m.name, m.mentor_id, l.nivel + 1
+      FROM members m
+      JOIN linhagem l ON m.mentor_id = l.id
+    )
+    SELECT name, nivel
+    FROM linhagem
+    WHERE nivel > 0
+    ORDER BY nivel, name;
+  hints:
+    - A condição do JOIN define se a recursão sobe ou desce na árvore.
+  explanation: |
+    `m.id = l.mentor_id` encontra o mentor de quem já está na lista, ou seja, sobe. Para descer, procure quem tem como mentor alguém da lista.
+  traps:
+    - reason: Só o primeiro nível
+      sql: SELECT m.name, 1 FROM members m JOIN members a ON m.mentor_id = a.id WHERE a.name = 'Ana Ferro' ORDER BY 2, 1;

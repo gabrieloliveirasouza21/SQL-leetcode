@@ -85,6 +85,15 @@ function OutputPanel({ output }: { output: Output }) {
       if (verdict.stage === 'rule') {
         return <div className="verdict warn"><strong>Regra do problema</strong><p>{verdict.reason}</p></div>;
       }
+      if (verdict.stage === 'plan') {
+        return (
+          <div className="verdict warn">
+            <strong>Resultado certo, mas ainda dá para otimizar</strong>
+            <p>{verdict.reason}</p>
+            <pre className="plan">{verdict.plan.join('\n')}</pre>
+          </div>
+        );
+      }
       if (verdict.stage === 'behavior') {
         return <div className="verdict bad"><strong>A tabela não se comportou como pedido</strong><p>{verdict.reason}</p></div>;
       }
@@ -117,7 +126,10 @@ function OutputPanel({ output }: { output: Output }) {
 }
 
 export function ProblemPage({ problem, solved, onSolved }: { problem: Problem; solved: boolean; onSolved: (slug: string) => void }) {
-  const [code, setCode] = useState(() => loadDraft(problem.slug) ?? STARTER);
+  const initialCode = problem.starter ?? STARTER;
+  const [code, setCode] = useState(() => loadDraft(problem.slug) ?? initialCode);
+  // Trocar a chave recria o editor, porque ele nem sempre acompanha uma troca externa de `value`.
+  const [editorVersion, setEditorVersion] = useState(0);
   const [output, setOutput] = useState<Output>({ type: 'idle' });
   const [expected, setExpected] = useState<ResultSet | null>(null);
   const [hintsShown, setHintsShown] = useState(0);
@@ -229,6 +241,7 @@ export function ProblemPage({ problem, solved, onSolved }: { problem: Problem; s
       <section className="solver">
         <div className="editor">
           <CodeMirror
+            key={editorVersion}
             value={code}
             theme="dark"
             height="100%"
@@ -244,6 +257,18 @@ export function ProblemPage({ problem, solved, onSolved }: { problem: Problem; s
         <div className="actions">
           <button className="ghost" onClick={run} disabled={output.type === 'busy'}>Executar <kbd>Ctrl+Enter</kbd></button>
           <button className="primary" onClick={submit} disabled={output.type === 'busy'}>Enviar</button>
+          {problem.starter && code !== problem.starter && (
+            <button
+              className="ghost"
+              onClick={() => {
+                setCode(problem.starter!);
+                saveDraft(problem.slug, problem.starter!);
+                setEditorVersion((version) => version + 1);
+              }}
+            >
+              Restaurar código
+            </button>
+          )}
           {accepted && next && <a className="next" href={`#/problema/${next.slug}`}>Próximo: {next.title} →</a>}
         </div>
         <div className="output" aria-live="polite"><OutputPanel output={output} /></div>

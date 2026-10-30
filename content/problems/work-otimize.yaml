@@ -1,0 +1,315 @@
+- slug: otimize-funcao-no-filtro
+  title: A função que desliga o índice
+  difficulty: medio
+  in: [otimize/Reescrever a consulta]
+  statement: |
+    Já existe um índice em `shows(show_date)`, mas esta consulta lê a tabela inteira. Rode `EXPLAIN QUERY PLAN` antes dela e veja por quê.
+
+    Reescreva para usar o índice, com o mesmo resultado.
+  setup: CREATE INDEX idx_shows_date ON shows (show_date);
+  starter: |
+    SELECT id
+    FROM shows
+    WHERE SUBSTR(show_date, 1, 4) = '2026'
+    ORDER BY id;
+  ordered: true
+  plan_must: [USING]
+  plan_forbid: [SCAN shows]
+  solution: |
+    SELECT id
+    FROM shows
+    WHERE show_date >= '2026-01-01' AND show_date < '2027-01-01'
+    ORDER BY id;
+  hints:
+    - O índice guarda show_date, não o resultado de SUBSTR.
+  explanation: |
+    Agora o plano mostra SEARCH em vez de SCAN. A regra é deixar a coluna sozinha em um lado da comparação.
+  traps:
+    - reason: Resultado diferente
+      sql: SELECT id FROM shows WHERE show_date >= '2026-01-01' AND show_date < '2026-12-01' ORDER BY id;
+
+- slug: otimize-prefixo-de-texto
+  title: Busca por início do nome
+  difficulty: medio
+  in: [otimize/Reescrever a consulta]
+  statement: |
+    Há um índice em `merch(item)`. A busca abaixo lê a tabela inteira. Reescreva com comparações de intervalo para encontrar os itens que começam com `Camiseta`, com o mesmo resultado.
+  setup: CREATE INDEX idx_merch_item ON merch (item);
+  starter: |
+    SELECT item
+    FROM merch
+    WHERE SUBSTR(item, 1, 8) = 'Camiseta'
+    ORDER BY item;
+  ordered: true
+  plan_must: [USING]
+  plan_forbid: [SCAN merch]
+  solution: |
+    SELECT item
+    FROM merch
+    WHERE item >= 'Camiseta' AND item < 'Camisetb'
+    ORDER BY item;
+  hints:
+    - Todo texto que começa com Camiseta vem antes de Camisetb na ordem.
+  explanation: |
+    Busca por prefixo pode usar índice, porque os itens ficam agrupados. Com curinga no início, como `%Camiseta`, nenhum índice comum ajuda.
+  traps:
+    - reason: Limite errado
+      sql: SELECT item FROM merch WHERE item >= 'Camiseta' AND item < 'Camiseta F' ORDER BY item;
+
+- slug: otimize-conta-na-coluna
+  title: Conta do lado errado
+  difficulty: medio
+  in: [otimize/Reescrever a consulta]
+  statement: |
+    Há um índice em `shows(ticket_price)`, mas a consulta faz uma conta sobre a coluna e lê tudo. Reescreva a condição com o mesmo significado, para usar o índice.
+  setup: CREATE INDEX idx_shows_price ON shows (ticket_price);
+  starter: |
+    SELECT id
+    FROM shows
+    WHERE ticket_price * 2 > 400;
+  ordered: false
+  plan_must: [SEARCH]
+  plan_forbid: [SCAN shows]
+  solution: |
+    SELECT id
+    FROM shows
+    WHERE ticket_price > 200;
+  hints:
+    - Passe a conta para o outro lado da comparação.
+  explanation: |
+    Qualquer operação sobre a coluna impede o uso do índice comum. Fazer a conta no valor constante mantém o mesmo significado.
+  traps:
+    - reason: Inclui exatamente 200
+      sql: SELECT id FROM shows WHERE ticket_price >= 200;
+
+- slug: otimize-ordem-pelo-indice
+  title: Ordenar sem ordenar
+  difficulty: medio
+  in: [otimize/Reescrever a consulta]
+  statement: |
+    Há um índice em `shows(show_date)`. A home mostra as 3 datas mais recentes, mas a função no `ORDER BY` obriga o banco a ordenar tudo. Reescreva para ler as linhas já na ordem do índice.
+  setup: CREATE INDEX idx_shows_date ON shows (show_date);
+  starter: |
+    SELECT show_date
+    FROM shows
+    ORDER BY DATE(show_date) DESC
+    LIMIT 3;
+  ordered: true
+  plan_forbid: [TEMP B-TREE]
+  solution: |
+    SELECT show_date
+    FROM shows
+    ORDER BY show_date DESC
+    LIMIT 3;
+  hints:
+    - USE TEMP B-TREE no plano indica uma ordenação extra.
+  explanation: |
+    Sem ordenação extra, o banco para na terceira linha, e o custo não cresce com o tamanho da tabela. Essa é a maior vantagem do índice em consultas com LIMIT.
+  traps:
+    - reason: Ordem crescente
+      sql: SELECT show_date FROM shows ORDER BY show_date LIMIT 3;
+
+- slug: otimize-distinct-por-exists
+  title: DISTINCT que dá trabalho
+  difficulty: medio
+  in: [otimize/Reescrever a consulta]
+  statement: |
+    Esta consulta gera linhas repetidas e depois gasta memória para eliminá-las. Reescreva sem `JOIN` nem `DISTINCT`, com o mesmo resultado.
+  starter: |
+    SELECT DISTINCT b.name
+    FROM bands b
+    JOIN shows s ON s.band_id = b.id;
+  ordered: false
+  plan_forbid: [TEMP B-TREE FOR DISTINCT]
+  solution: |
+    SELECT b.name
+    FROM bands b
+    WHERE EXISTS (SELECT 1 FROM shows s WHERE s.band_id = b.id);
+  hints:
+    - EXISTS para assim que encontra a primeira linha.
+  explanation: |
+    Se a pergunta é "existe algum?", peça exatamente isso. O banco deixa de gerar todas as combinações só para descartá-las depois.
+  traps:
+    - reason: Traz quem não tem show
+      sql: SELECT b.name FROM bands b WHERE NOT EXISTS (SELECT 1 FROM shows s WHERE s.band_id = b.id);
+
+- slug: otimize-subconsulta-por-linha
+  title: Uma subconsulta por linha
+  difficulty: dificil
+  in: [otimize/Reescrever a consulta]
+  statement: |
+    O plano desta consulta mostra `CORRELATED SCALAR SUBQUERY`: a contagem roda de novo para cada banda. Reescreva com `JOIN` e `GROUP BY`, com o mesmo resultado, inclusive para bandas sem show.
+  starter: |
+    SELECT b.name, (SELECT COUNT(*) FROM shows s WHERE s.band_id = b.id) AS total
+    FROM bands b
+    ORDER BY b.name;
+  ordered: true
+  plan_forbid: [CORRELATED SCALAR SUBQUERY]
+  solution: |
+    SELECT b.name, COUNT(s.id) AS total
+    FROM bands b
+    LEFT JOIN shows s ON s.band_id = b.id
+    GROUP BY b.id
+    ORDER BY b.name;
+  hints:
+    - Bandas sem show precisam aparecer com 0.
+  explanation: |
+    Em tabelas grandes, uma subconsulta por linha pode ser muito cara se não houver índice. Mesmo assim, teste os dois: às vezes a subconsulta correlacionada com índice ganha.
+  traps:
+    - reason: COUNT(*) conta 1 para banda sem show
+      sql: SELECT b.name, COUNT(*) AS total FROM bands b LEFT JOIN shows s ON s.band_id = b.id GROUP BY b.id ORDER BY b.name;
+
+- slug: otimize-union-all
+  title: UNION que elimina o que não existe
+  difficulty: facil
+  in: [otimize/Reescrever a consulta]
+  statement: |
+    As duas partes desta consulta nunca têm linhas iguais, porque a segunda coluna é diferente. Mesmo assim, o banco faz um trabalho extra para procurar duplicatas, o que aparece como `MERGE (UNION)` no plano. Elimine esse custo.
+  starter: |
+    SELECT id, 'show' AS origem FROM shows
+    UNION
+    SELECT id, 'pedido' FROM tickets;
+  ordered: false
+  plan_must: [UNION ALL]
+  plan_forbid: [MERGE (UNION)]
+  solution: |
+    SELECT id, 'show' AS origem FROM shows
+    UNION ALL
+    SELECT id, 'pedido' FROM tickets;
+  hints:
+    - Existe uma variante de UNION que só empilha os resultados.
+  explanation: |
+    UNION garante unicidade, e isso tem custo. Se as linhas não podem se repetir, ou se repetições não importam, UNION ALL faz menos trabalho.
+  traps:
+    - reason: Falta uma das partes
+      sql: SELECT id, 'show' AS origem FROM shows;
+
+- slug: otimize-indice-do-filtro
+  title: O índice que faltava
+  difficulty: facil
+  in: [otimize/Criar o índice certo]
+  statement: |
+    Esta consulta roda a cada venda e lê a tabela inteira:
+
+    `SELECT id FROM tickets WHERE show_id = 1`
+
+    Crie o índice que muda o plano para uma busca direta.
+  starter: |
+    -- Crie o índice aqui
+  ordered: true
+  check: SELECT COUNT(*) FROM tickets;
+  plan_of: SELECT id FROM tickets WHERE show_id = 1;
+  plan_must: [USING]
+  plan_forbid: [SCAN tickets]
+  solution: |
+    CREATE INDEX idx_tickets_show ON tickets (show_id);
+  hints:
+    - Indexe a coluna usada no filtro.
+  explanation: |
+    Depois do índice, o plano passa de SCAN para SEARCH. Rode o `EXPLAIN QUERY PLAN` antes e depois, para ver a mudança.
+  traps:
+    - reason: Coluna errada
+      sql: CREATE INDEX i ON tickets (buyer);
+
+- slug: otimize-filtro-e-ordem
+  title: Filtro e ordem no mesmo índice
+  difficulty: medio
+  in: [otimize/Criar o índice certo]
+  statement: |
+    Esta consulta da página da banda ainda faz uma ordenação extra:
+
+    `SELECT id FROM shows WHERE band_id = 1 ORDER BY show_date`
+
+    Crie um único índice que elimine tanto a leitura completa quanto a ordenação.
+  starter: |
+    -- Crie o índice aqui
+  ordered: true
+  check: SELECT COUNT(*) FROM shows;
+  plan_of: SELECT id FROM shows WHERE band_id = 1 ORDER BY show_date;
+  plan_must: [USING]
+  plan_forbid: [SCAN shows, TEMP B-TREE]
+  solution: |
+    CREATE INDEX idx_shows_band_date ON shows (band_id, show_date);
+  hints:
+    - Primeiro a coluna do filtro por igualdade, depois a da ordenação.
+  explanation: |
+    Dentro de cada banda, o índice já guarda as datas em ordem. Com as colunas invertidas, as linhas da banda ficariam espalhadas.
+  traps:
+    - reason: Só o filtro, ainda ordena
+      sql: CREATE INDEX i ON shows (band_id);
+    - reason: Ordem invertida
+      sql: CREATE INDEX i ON shows (show_date, band_id);
+
+- slug: otimize-cobertura
+  title: Sem tocar na tabela
+  difficulty: dificil
+  in: [otimize/Criar o índice certo]
+  statement: |
+    Esta consulta é executada o tempo todo:
+
+    `SELECT show_date, ticket_price FROM shows WHERE band_id = 1`
+
+    Crie um índice que responda sem precisar ler a tabela. O plano deve mostrar `COVERING INDEX`.
+  starter: |
+    -- Crie o índice aqui
+  ordered: true
+  check: SELECT COUNT(*) FROM shows;
+  plan_of: SELECT show_date, ticket_price FROM shows WHERE band_id = 1;
+  plan_must: [COVERING INDEX]
+  solution: |
+    CREATE INDEX idx_shows_cobre ON shows (band_id, show_date, ticket_price);
+  hints:
+    - O índice precisa conter todas as colunas que a consulta usa.
+  explanation: |
+    Um índice de cobertura responde sozinho, sem a tabela. O custo é um índice maior e mais trabalho a cada escrita, então reserve para consultas muito frequentes.
+  traps:
+    - reason: Falta o preço
+      sql: CREATE INDEX i ON shows (band_id, show_date);
+
+- slug: otimize-indice-de-expressao
+  title: Mantendo a função na consulta
+  difficulty: dificil
+  in: [otimize/Criar o índice certo]
+  statement: |
+    A aplicação não pode mudar agora, e esta consulta continuará igual:
+
+    `SELECT full_name FROM press_contacts WHERE LOWER(email) = 'x@y.com'`
+
+    Crie um índice que permita a busca direta mesmo com a função.
+  starter: |
+    -- Crie o índice aqui
+  ordered: true
+  check: SELECT COUNT(*) FROM press_contacts;
+  plan_of: SELECT full_name FROM press_contacts WHERE LOWER(email) = 'x@y.com';
+  plan_must: [USING]
+  plan_forbid: [SCAN press_contacts]
+  solution: |
+    CREATE INDEX idx_email_lower ON press_contacts (LOWER(email));
+  hints:
+    - Um índice pode guardar o resultado de uma expressão.
+  explanation: |
+    Quando não dá para mudar a consulta, adapte o índice. A expressão do índice precisa ser igual à usada na consulta.
+  traps:
+    - reason: Índice na coluna não serve para a função
+      sql: CREATE INDEX i ON press_contacts (email);
+
+- slug: otimize-indice-redundante
+  title: Um índice sobrando
+  difficulty: medio
+  in: [otimize/Criar o índice certo]
+  statement: |
+    `shows` tem dois índices: `idx_a` em `(band_id)` e `idx_b` em `(band_id, show_date)`. Toda escrita paga pelos dois, mas um deles é redundante. Remova só o que não faz falta.
+  setup: |
+    CREATE INDEX idx_a ON shows (band_id);
+    CREATE INDEX idx_b ON shows (band_id, show_date);
+  ordered: true
+  check: SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'shows' ORDER BY name;
+  solution: |
+    DROP INDEX idx_a;
+  hints:
+    - Filtrar só por band_id também pode usar o índice composto.
+  explanation: |
+    Pela regra do prefixo à esquerda, `(band_id, show_date)` atende consultas só por `band_id`. Remover índices redundantes barateia as escritas sem prejudicar as leituras.
+  traps:
+    - reason: Remove o índice mais útil
+      sql: DROP INDEX idx_b;

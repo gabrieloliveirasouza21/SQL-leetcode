@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { problems, topicProblemSlugs, topics, type Difficulty, type Problem } from './content';
+import { practice, problems, topicProblemSlugs, topics, type Difficulty, type Problem, type Topic } from './content';
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   facil: 'Fácil',
@@ -33,6 +33,38 @@ export function RoadmapPage({ solved }: { solved: Set<string> }) {
   const visible = (problem: Problem) => filter === 'todas' || problem.difficulty === filter;
   const firstOpen = topics.find((topic) => topicProblemSlugs(topic).some((slug) => !solved.has(slug)))?.id;
 
+  const renderTopic = (topic: Topic) => {
+    const slugs = topicProblemSlugs(topic);
+    const done = slugs.filter((slug) => solved.has(slug)).length;
+    const complete = done === slugs.length;
+    const matching = slugs.some((slug) => visible(bySlug.get(slug)!));
+    return (
+      <li key={topic.id} className={complete ? 'node complete' : 'node'}>
+        <span className="node-marker" aria-hidden="true">{complete ? '✓' : ''}</span>
+        <details className="node-body" open={filter !== 'todas' || topic.id === firstOpen}>
+          <summary className="node-head">
+            <h2>{topic.title}</h2>
+            <span className="node-count">{done}/{slugs.length}</span>
+          </summary>
+          <p className="node-summary">{topic.summary}</p>
+          {!matching && <p className="empty">Nenhum problema nessa dificuldade.</p>}
+          {topic.problems && <ProblemList slugs={topic.problems} solved={solved} visible={visible} />}
+          {topic.subtopics.map((subtopic, index) => {
+            if (!subtopic.problems.some((slug) => visible(bySlug.get(slug)!))) return null;
+            const previousVisible = topic.subtopics.slice(0, index).reverse().find((s) => s.problems.some((slug) => visible(bySlug.get(slug)!)));
+            return (
+              <Fragment key={`${subtopic.group ?? ''}/${subtopic.name}`}>
+                {subtopic.group && subtopic.group !== previousVisible?.group && <h3 className="group">{subtopic.group}</h3>}
+                <h4 className="subtopic">{subtopic.name}</h4>
+                <ProblemList slugs={subtopic.problems} solved={solved} visible={visible} />
+              </Fragment>
+            );
+          })}
+        </details>
+      </li>
+    );
+  };
+
   return (
     <main className="roadmap">
       <section className="intro">
@@ -55,39 +87,13 @@ export function RoadmapPage({ solved }: { solved: Set<string> }) {
         </div>
       </section>
 
-      <ol className="path">
-        {topics.map((topic) => {
-          const slugs = topicProblemSlugs(topic);
-          const done = slugs.filter((slug) => solved.has(slug)).length;
-          const complete = done === slugs.length;
-          const matching = slugs.some((slug) => visible(bySlug.get(slug)!));
-          return (
-            <li key={topic.id} className={complete ? 'node complete' : 'node'}>
-              <span className="node-marker" aria-hidden="true">{complete ? '✓' : ''}</span>
-              <details className="node-body" open={filter !== 'todas' || topic.id === firstOpen}>
-                <summary className="node-head">
-                  <h2>{topic.title}</h2>
-                  <span className="node-count">{done}/{slugs.length}</span>
-                </summary>
-                <p className="node-summary">{topic.summary}</p>
-                {!matching && <p className="empty">Nenhum problema nessa dificuldade.</p>}
-                {topic.problems && <ProblemList slugs={topic.problems} solved={solved} visible={visible} />}
-                {topic.subtopics.map((subtopic, index) => {
-                  if (!subtopic.problems.some((slug) => visible(bySlug.get(slug)!))) return null;
-                  const previousVisible = topic.subtopics.slice(0, index).reverse().find((s) => s.problems.some((slug) => visible(bySlug.get(slug)!)));
-                  return (
-                    <Fragment key={`${subtopic.group ?? ''}/${subtopic.name}`}>
-                      {subtopic.group && subtopic.group !== previousVisible?.group && <h3 className="group">{subtopic.group}</h3>}
-                      <h4 className="subtopic">{subtopic.name}</h4>
-                      <ProblemList slugs={subtopic.problems} solved={solved} visible={visible} />
-                    </Fragment>
-                  );
-                })}
-              </details>
-            </li>
-          );
-        })}
-      </ol>
+      <ol className="path">{topics.map(renderTopic)}</ol>
+
+      <section className="practice-intro">
+        <h2>Como no trabalho</h2>
+        <p>No dia a dia, você lê mais código do que escreve do zero. Aqui, os exercícios já começam com código no editor.</p>
+      </section>
+      <ol className="path practice-path">{practice.map(renderTopic)}</ol>
       <footer className="credit">
         Tópicos e subtópicos seguem o <a href="https://roadmap.sh/sql" target="_blank" rel="noreferrer">roadmap de SQL do roadmap.sh</a>.
         Problemas e dados são originais. Projeto independente, sem vínculo com o roadmap.sh.

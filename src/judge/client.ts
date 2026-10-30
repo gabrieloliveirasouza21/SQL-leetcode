@@ -36,8 +36,8 @@ function call<T>(payload: Payload): Promise<T> {
   });
 }
 
-function judged({ solution, ordered, check, setup, must_use, forbid, accepts, rejects }: Problem): JudgedProblem {
-  return { solution, ordered, check, setup, must_use, forbid, accepts, rejects };
+function judged({ solution, ordered, check, setup, must_use, forbid, accepts, rejects, plan_of, plan_must, plan_forbid }: Problem): JudgedProblem {
+  return { solution, ordered, check, setup, must_use, forbid, accepts, rejects, plan_of, plan_must, plan_forbid };
 }
 
 export const runQuery = (problem: Problem, sql: string) =>

@@ -230,3 +230,38 @@ topics:
       - { group: Window Functions, name: lead, problems: [proximo-show] }
       - { group: Window Functions, name: lag, problems: [evolucao-de-publico] }
       - { group: Window Functions, name: first_value, problems: [primeiro-show-da-banda] }
+
+# Seções por tipo de trabalho, fora do roadmap. Os exercícios entram pelo campo `in`.
+practice:
+  - id: conserte
+    title: Conserte
+    summary: O código já existe e está errado. Descubra o defeito a partir do sintoma e corrija.
+    study:
+      - label: SELECT na documentação do SQLite
+        url: https://www.sqlite.org/lang_select.html
+    subtopics:
+      - { name: Erros de lógica, problems: [] }
+      - { name: Joins e agregações, problems: [] }
+      - { name: Recursos avançados, problems: [] }
+  - id: implemente
+    title: Implemente
+    summary: A base está pronta. Acrescente o que falta até o corretor aceitar.
+    study:
+      - label: Cláusula WITH e CTEs
+        url: https://www.sqlite.org/lang_with.html
+      - label: ALTER TABLE
+        url: https://www.sqlite.org/lang_altertable.html
+    subtopics:
+      - { name: Evoluir relatórios, problems: [] }
+      - { name: Evoluir o banco, problems: [] }
+  - id: otimize
+    title: Otimize
+    summary: O resultado já está certo. Reduza o trabalho do banco, medido pelo plano de execução.
+    study:
+      - label: EXPLAIN QUERY PLAN
+        url: https://www.sqlite.org/eqp.html
+      - label: Como o planejador usa índices
+        url: https://www.sqlite.org/queryplanner.html
+    subtopics:
+      - { name: Reescrever a consulta, problems: [] }
+      - { name: Criar o índice certo, problems: [] }
