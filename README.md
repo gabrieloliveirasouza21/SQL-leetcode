@@ -20,11 +20,12 @@ Cada envio roda em um banco novo, dentro de um Web Worker com limite de 4 segund
 
 ## Adicionar um problema
 
-Crie um arquivo em `content/problems/`, com um problema ou uma lista deles. Depois, adicione o `slug` ao subtópico certo em `content/roadmap.yaml`. É esse arquivo que define a hierarquia, a ordem e as etiquetas de cada problema, e um problema pode aparecer em vários subtópicos. Campos:
+Crie um arquivo em `content/problems/`, com um problema ou uma lista deles. O campo `in` liga o problema à hierarquia de `content/roadmap.yaml`, como `dml/WHERE`, ou só `stored-procedures` em tópico sem subtópicos. Um problema pode aparecer em vários subtópicos, e dentro de cada um a ordem vai do mais fácil ao mais difícil. Campos:
 
 | Campo | Uso |
 |---|---|
 | `slug`, `title` | Identificação |
+| `in` | Lugares na trilha, no formato `id-do-tópico/Nome do subtópico` |
 | `difficulty` | `facil`, `medio` ou `dificil` |
 | `statement` | Enunciado. Aceita `código` inline |
 | `ordered` | Se a ordem das linhas é corrigida |

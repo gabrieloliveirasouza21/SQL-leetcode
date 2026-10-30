@@ -1,0 +1,642 @@
+- slug: tabela-de-palcos
+  title: A tabela de palcos
+  difficulty: facil
+  in: [ddl/Create Table]
+  statement: |
+    Crie a tabela `stages` com `id` (inteiro, chave primária), `venue_id` (inteiro obrigatório) e `name` (texto obrigatório), nesta ordem.
+  ordered: true
+  check: SELECT name, type, "notnull", pk FROM pragma_table_info('stages') ORDER BY cid;
+  solution: |
+    CREATE TABLE stages (
+      id INTEGER PRIMARY KEY,
+      venue_id INTEGER NOT NULL,
+      name TEXT NOT NULL
+    );
+  hints:
+    - Tipos e restrições vêm depois do nome de cada coluna.
+  explanation: |
+    Nomear colunas com o sufixo `_id` deixa claro para qual tabela elas apontam. Essa consistência ajuda muito na leitura.
+  traps:
+    - reason: Sem chave primária
+      sql: CREATE TABLE stages (id INTEGER, venue_id INTEGER NOT NULL, name TEXT NOT NULL);
+    - reason: Colunas fora de ordem
+      sql: CREATE TABLE stages (id INTEGER PRIMARY KEY, name TEXT NOT NULL, venue_id INTEGER NOT NULL);
+
+- slug: tabela-a-partir-de-consulta
+  title: Uma foto do relatório
+  difficulty: medio
+  in: [ddl/Create Table]
+  statement: |
+    O financeiro quer uma foto dos shows de 2025 e nada mais. Crie a tabela `shows_2025`, a partir de uma consulta, com todas as colunas de `shows` para datas de 2025.
+  ordered: true
+  must_use: [CREATE TABLE, SELECT]
+  check: SELECT * FROM shows_2025 ORDER BY id;
+  solution: |
+    CREATE TABLE shows_2025 AS
+    SELECT *
+    FROM shows
+    WHERE show_date BETWEEN '2025-01-01' AND '2025-12-31';
+  hints:
+    - CREATE TABLE nome AS SELECT cria e preenche a tabela de uma vez.
+  explanation: |
+    A tabela nova guarda uma cópia dos dados. Ela não acompanha mudanças futuras e, no SQLite, não herda chaves nem restrições da original.
+  traps:
+    - reason: Todos os anos
+      sql: CREATE TABLE shows_2025 AS SELECT * FROM shows;
+    - reason: Só a coluna de data
+      sql: CREATE TABLE shows_2025 AS SELECT show_date FROM shows WHERE show_date BETWEEN '2025-01-01' AND '2025-12-31';
+
+- slug: renomear-coluna
+  title: Nome de coluna melhor
+  difficulty: facil
+  in: [ddl/Alter Table]
+  statement: |
+    A coluna `phone` de `press_contacts` deve se chamar `telefone`. Renomeie a coluna sem perder dados.
+  ordered: true
+  must_use: [ALTER TABLE]
+  check: SELECT id, telefone FROM press_contacts ORDER BY id;
+  solution: |
+    ALTER TABLE press_contacts
+    RENAME COLUMN phone TO telefone;
+  hints:
+    - A sintaxe é RENAME COLUMN antigo TO novo.
+  explanation: |
+    Renomear é rápido, mas quebra consultas e views que usam o nome antigo. Em produção, costuma ser feito em etapas.
+  traps:
+    - reason: Cria outra coluna vazia
+      sql: ALTER TABLE press_contacts ADD COLUMN telefone TEXT;
+    - reason: Remove os telefones
+      sql: ALTER TABLE press_contacts DROP COLUMN phone;
+
+- slug: renomear-tabela
+  title: Tabela com nome novo
+  difficulty: facil
+  in: [ddl/Alter Table]
+  statement: |
+    A tabela `merch` passará a se chamar `produtos`. Faça a mudança sem perder dados.
+  ordered: true
+  must_use: [ALTER TABLE]
+  check: SELECT id, item FROM produtos ORDER BY id;
+  solution: |
+    ALTER TABLE merch RENAME TO produtos;
+  hints:
+    - ALTER TABLE também muda o nome da própria tabela.
+  explanation: |
+    O banco atualiza as referências internas de chaves e índices, mas o código da aplicação continua usando o nome antigo até ser alterado.
+  traps:
+    - reason: Só copia a estrutura vazia
+      sql: CREATE TABLE produtos (id INTEGER, item TEXT);
+
+- slug: remover-coluna
+  title: A coluna que ninguém usa
+  difficulty: medio
+  in: [ddl/Alter Table]
+  statement: |
+    A coluna `disbanded_year` de `bands` será abandonada. Remova só essa coluna, mantendo as outras e todas as linhas.
+  ordered: true
+  must_use: [DROP COLUMN]
+  check: SELECT name FROM pragma_table_info('bands') ORDER BY cid;
+  solution: |
+    ALTER TABLE bands DROP COLUMN disbanded_year;
+  hints:
+    - DROP COLUMN é uma forma de ALTER TABLE.
+  explanation: |
+    Remover uma coluna destrói os dados dela. O caminho seguro é parar de usá-la, confirmar que nada depende dela e só então removê-la.
+  traps:
+    - reason: Coluna errada
+      sql: ALTER TABLE bands DROP COLUMN genre;
+
+- slug: esvaziar-e-conferir
+  title: Limpar a imprensa, com conferência
+  difficulty: facil
+  in: [ddl/Truncate Table]
+  statement: |
+    Esvazie `press_contacts` para o credenciamento do ano que vem. A tabela deve continuar existindo, e todas as linhas devem sair. Como no outro exercício, use o caminho do SQLite, sem `WHERE`.
+  ordered: true
+  forbid: [WHERE]
+  check: SELECT (SELECT COUNT(*) FROM press_contacts), (SELECT COUNT(*) FROM pragma_table_info('press_contacts'));
+  solution: |
+    DELETE FROM press_contacts;
+  hints:
+    - A estrutura continua, só as linhas saem.
+  explanation: |
+    Em bancos com TRUNCATE, o comando também libera o espaço de imediato. Ele costuma exigir que nenhuma tabela aponte para a que será esvaziada.
+  traps:
+    - reason: Remove a estrutura
+      sql: DROP TABLE press_contacts;
+
+- slug: truncate-ou-delete
+  title: TRUNCATE ou DELETE?
+  difficulty: medio
+  in: [ddl/Truncate Table]
+  statement: |
+    Em um banco com `TRUNCATE`, como PostgreSQL, você precisa apagar só os pedidos cancelados de uma tabela enorme. O que usar?
+  options:
+    - text: DELETE com WHERE, porque TRUNCATE não aceita filtro
+      why: Certo. TRUNCATE sempre esvazia a tabela inteira.
+    - text: TRUNCATE com WHERE
+      why: TRUNCATE não aceita WHERE.
+    - text: DROP TABLE, seguido de recriar a tabela
+      why: Perderia todas as linhas e ainda as permissões.
+    - text: TRUNCATE, porque é sempre mais rápido
+      why: É rápido, mas apagaria também os pedidos válidos.
+  answer: 0
+  hints: []
+  explanation: |
+    Use TRUNCATE para esvaziar tudo e DELETE para escolher linhas. Em tabelas enormes, apagar muitas linhas em lotes menores reduz bloqueios.
+  traps: []
+
+- slug: drop-se-existir
+  title: Script que roda duas vezes
+  difficulty: facil
+  in: [ddl/Drop Table]
+  statement: |
+    Um script de limpeza pode rodar mais de uma vez. Escreva um comando que apague a tabela `temporaria`, sem dar erro caso ela não exista. Neste banco, ela ainda não existe.
+  ordered: true
+  must_use: [DROP TABLE, IF EXISTS]
+  check: SELECT COUNT(*) FROM sqlite_master WHERE name = 'temporaria';
+  solution: |
+    DROP TABLE IF EXISTS temporaria;
+  hints:
+    - Existe uma cláusula que torna o comando seguro para repetir.
+  explanation: |
+    IF EXISTS torna o script idempotente, ou seja, rodar várias vezes tem o mesmo efeito de rodar uma. Isso é valioso em migrações e automações.
+  traps:
+    - reason: Dá erro se a tabela não existir
+      sql: DROP TABLE temporaria;
+
+- slug: drop-com-dependencia
+  title: Apagar quem é referenciado
+  difficulty: medio
+  in: [ddl/Drop Table]
+  statement: |
+    Com as chaves estrangeiras ligadas, `DROP TABLE tickets` falha, porque `checkins` aponta para ela e tem linhas. Apague as duas tabelas na ordem certa.
+  ordered: true
+  must_use: [DROP TABLE]
+  check: SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name;
+  solution: |
+    DROP TABLE checkins;
+    DROP TABLE tickets;
+  hints:
+    - Comece pela tabela que aponta para a outra.
+  explanation: |
+    A dependência dita a ordem: primeiro quem aponta, depois quem é apontado. Em alguns bancos, CASCADE remove as dependências, mas é perigoso sem olhar o que será afetado.
+  traps:
+    - reason: Ordem invertida
+      sql: DROP TABLE tickets; DROP TABLE checkins;
+    - reason: Falta apagar tickets
+      sql: DROP TABLE checkins;
+
+- slug: pais-e-genero
+  title: Combinações de país e gênero
+  difficulty: facil
+  in: [dml/Select]
+  statement: |
+    Liste as combinações distintas de `country` e `genre` em `bands`, ordenadas por país e depois por gênero.
+  ordered: true
+  solution: |
+    SELECT DISTINCT country, genre
+    FROM bands
+    ORDER BY country, genre;
+  hints:
+    - DISTINCT vale para a linha inteira.
+  explanation: |
+    DISTINCT remove repetições da combinação completa de colunas. Por isso, o Brasil aparece várias vezes, uma para cada gênero.
+  traps:
+    - reason: Sem DISTINCT
+      sql: SELECT country, genre FROM bands ORDER BY country, genre;
+    - reason: Coluna faltando
+      sql: SELECT DISTINCT country FROM bands ORDER BY country;
+
+- slug: apelidos-para-o-relatorio
+  title: Colunas com nome certo
+  difficulty: facil
+  in: [dml/Select]
+  statement: |
+    O relatório exige as colunas `casa` e `lugares`, com `name` e `capacity` de `venues`, da maior para a menor capacidade.
+
+    Os apelidos fazem parte do pedido, e o corretor confere o resultado pela posição.
+  ordered: true
+  must_use: [AS]
+  solution: |
+    SELECT name AS casa, capacity AS lugares
+    FROM venues
+    ORDER BY capacity DESC;
+  hints:
+    - AS define o nome da coluna no resultado.
+  explanation: |
+    Apelidos não mudam a tabela, só o resultado. Eles são especialmente úteis em colunas calculadas e em JOINs com nomes repetidos.
+  traps:
+    - reason: Sem apelidos
+      sql: SELECT name, capacity FROM venues ORDER BY capacity DESC;
+
+- slug: junto-sem-join
+  title: Tabelas separadas por vírgula
+  difficulty: medio
+  in: [dml/FROM]
+  statement: |
+    Em código antigo, é comum ver tabelas separadas por vírgula no `FROM`. Sem usar a palavra `JOIN`, retorne o nome da banda e a data de cada show, ordenados por data, nome da banda e `id` do show.
+  ordered: true
+  forbid: [JOIN]
+  solution: |
+    SELECT b.name, s.show_date
+    FROM bands b, shows s
+    WHERE s.band_id = b.id
+    ORDER BY s.show_date, b.name, s.id;
+  hints:
+    - Sem condição no WHERE, cada banda seria combinada com todos os shows.
+  explanation: |
+    Essa sintaxe equivale a um INNER JOIN, mas é mais fácil esquecer a condição. Por isso, JOIN explícito é preferível em código novo.
+  traps:
+    - reason: Sem condição vira CROSS JOIN
+      sql: SELECT b.name, s.show_date FROM bands b, shows s ORDER BY s.show_date, b.name, s.id;
+
+- slug: filtrar-subconsulta-no-from
+  title: Bandas com mais de um show
+  difficulty: medio
+  in: [dml/FROM]
+  statement: |
+    Liste `band_id` e o total de shows das bandas com mais de um show, usando uma subconsulta no `FROM` que calcula os totais. Ordene por `band_id`.
+  ordered: true
+  must_use: [FROM]
+  forbid: [HAVING]
+  solution: |
+    SELECT t.band_id, t.total
+    FROM (
+      SELECT band_id, COUNT(*) AS total
+      FROM shows
+      GROUP BY band_id
+    ) t
+    WHERE t.total > 1
+    ORDER BY t.band_id;
+  hints:
+    - Uma subconsulta no FROM precisa de um apelido na maioria dos bancos.
+  explanation: |
+    FROM aceita qualquer resultado com formato de tabela. Por fora, a coluna calculada vira uma coluna comum e pode ser filtrada com WHERE.
+  traps:
+    - reason: Inclui bandas com um único show
+      sql: SELECT t.band_id, t.total FROM (SELECT band_id, COUNT(*) AS total FROM shows GROUP BY band_id) t WHERE t.total >= 1 ORDER BY t.band_id;
+
+- slug: encerradas-apos-2000
+  title: Encerradas neste século
+  difficulty: facil
+  in: [dml/WHERE]
+  statement: |
+    Liste `name` e `disbanded_year` das bandas encerradas em 2000 ou depois, por `name`.
+  ordered: true
+  solution: |
+    SELECT name, disbanded_year
+    FROM bands
+    WHERE disbanded_year >= 2000
+    ORDER BY name;
+  hints:
+    - Bandas em atividade têm NULL. O que uma comparação com NULL devolve?
+  explanation: |
+    Linhas com NULL somem sozinhas em comparações, porque o resultado é desconhecido. Aqui isso ajuda, mas em outros casos é um bug.
+  traps:
+    - reason: Traz bandas em atividade
+      sql: SELECT name, disbanded_year FROM bands WHERE disbanded_year >= 2000 OR disbanded_year IS NULL ORDER BY name;
+    - reason: Exclui 2000 e pega a data errada
+      sql: SELECT name, disbanded_year FROM bands WHERE formed_year >= 2000 ORDER BY name;
+
+- slug: parenteses-no-filtro
+  title: Parênteses salvam
+  difficulty: medio
+  in: [dml/WHERE]
+  statement: |
+    Liste `id` dos shows com preço acima de 100 que acontecem em `2026-03-14` ou `2026-04-10`. Ordene por `id`. Use `OR` para as datas.
+  ordered: true
+  must_use: [OR]
+  solution: |
+    SELECT id
+    FROM shows
+    WHERE ticket_price > 100
+      AND (show_date = '2026-03-14' OR show_date = '2026-04-10')
+    ORDER BY id;
+  hints:
+    - AND vem antes de OR quando não há parênteses.
+  explanation: |
+    Sem parênteses, o preço só valeria para a primeira data, e o `OR` traria qualquer show da segunda. Use parênteses sempre que misturar os dois.
+  traps:
+    - reason: Sem parênteses muda a lógica
+      sql: SELECT id FROM shows WHERE ticket_price > 100 AND show_date = '2026-03-14' OR show_date = '2026-04-10' ORDER BY id;
+    - reason: Uma data não pode ser duas
+      sql: SELECT id FROM shows WHERE ticket_price > 100 AND show_date = '2026-03-14' AND show_date = '2026-04-10' ORDER BY id;
+
+- slug: na-lista-de-cidades
+  title: Só algumas cidades
+  difficulty: facil
+  in: [dml/WHERE]
+  statement: |
+    Liste `name` das casas em `São Paulo` ou `Curitiba` ou `Recife`, por `name`.
+  ordered: true
+  solution: |
+    SELECT name
+    FROM venues
+    WHERE city IN ('São Paulo', 'Curitiba', 'Recife')
+    ORDER BY name;
+  hints:
+    - IN evita repetir várias vezes a mesma coluna.
+  explanation: |
+    IN é um atalho legível para vários OR na mesma coluna. Ele também aceita uma subconsulta como lista.
+  traps:
+    - reason: Faltou Recife
+      sql: SELECT name FROM venues WHERE city IN ('São Paulo', 'Curitiba') ORDER BY name;
+    - reason: Inverte a lista
+      sql: SELECT name FROM venues WHERE city NOT IN ('São Paulo', 'Curitiba', 'Recife') ORDER BY name;
+
+- slug: nulos-por-ultimo
+  title: Em atividade por último
+  difficulty: medio
+  in: [dml/ORDER BY]
+  statement: |
+    Liste `name` e `disbanded_year`, por ano de encerramento crescente, e bandas em atividade (nulo) ficam por último. Em caso de empate, ordene por `name`.
+
+    O SQLite coloca nulos primeiro em ordem crescente.
+  ordered: true
+  solution: |
+    SELECT name, disbanded_year
+    FROM bands
+    ORDER BY disbanded_year IS NULL, disbanded_year, name;
+  hints:
+    - Uma expressão como `coluna IS NULL` resulta em 0 ou 1, e pode ser ordenada.
+  explanation: |
+    Ordenar pela expressão separa os nulos do resto. PostgreSQL e versões recentes do SQLite também têm `NULLS LAST`, que é mais legível.
+  traps:
+    - reason: Nulos primeiro
+      sql: SELECT name, disbanded_year FROM bands ORDER BY disbanded_year, name;
+    - reason: Ordem decrescente dos anos
+      sql: SELECT name, disbanded_year FROM bands ORDER BY disbanded_year DESC, name;
+
+- slug: ordem-personalizada
+  title: Pagos primeiro
+  difficulty: medio
+  in: [dml/ORDER BY]
+  statement: |
+    O atendimento quer ver os pedidos com `pago` primeiro, depois `reservado`, depois `cancelado`. Dentro de cada grupo, ordene por `id`. Retorne `id` e `status`.
+  ordered: true
+  solution: |
+    SELECT id, status
+    FROM tickets
+    ORDER BY
+      CASE status
+        WHEN 'pago' THEN 1
+        WHEN 'reservado' THEN 2
+        ELSE 3
+      END,
+      id;
+  hints:
+    - A ordem desejada não é alfabética. Dá para traduzir cada status em um número.
+  explanation: |
+    ORDER BY aceita expressões. CASE transforma uma ordem de negócio em algo que o banco sabe ordenar.
+  traps:
+    - reason: Ordem alfabética põe cancelado primeiro
+      sql: SELECT id, status FROM tickets ORDER BY status, id;
+    - reason: Sem agrupar por status
+      sql: SELECT id, status FROM tickets ORDER BY id;
+
+- slug: tres-niveis-de-ordem
+  title: Três níveis de ordem
+  difficulty: facil
+  in: [dml/ORDER BY]
+  statement: |
+    Liste `country`, `genre` e `name` das bandas, com país crescente, gênero decrescente e nome crescente.
+  ordered: true
+  solution: |
+    SELECT country, genre, name
+    FROM bands
+    ORDER BY country, genre DESC, name;
+  hints:
+    - DESC vale só para a coluna logo antes dele.
+  explanation: |
+    Cada coluna do ORDER BY tem a própria direção. `ORDER BY a, b DESC` deixa `a` crescente.
+  traps:
+    - reason: DESC só no país
+      sql: SELECT country, genre, name FROM bands ORDER BY country DESC, genre, name;
+    - reason: Todas crescentes
+      sql: SELECT country, genre, name FROM bands ORDER BY country, genre, name;
+
+- slug: shows-por-casa
+  title: Quantos shows por casa
+  difficulty: facil
+  in: [dml/GROUP BY, aggregate-queries/GROUP BY]
+  statement: |
+    Para cada `venue_id` com show, retorne o id e a quantidade de shows, por `venue_id`.
+  ordered: true
+  solution: |
+    SELECT venue_id, COUNT(*) AS total
+    FROM shows
+    GROUP BY venue_id
+    ORDER BY venue_id;
+  hints:
+    - Cada grupo vira uma linha.
+  explanation: |
+    GROUP BY junta linhas com o mesmo valor, e COUNT conta quantas há em cada grupo.
+  traps:
+    - reason: Sem GROUP BY
+      sql: SELECT venue_id, COUNT(*) FROM shows ORDER BY venue_id;
+    - reason: Agrupa pela banda
+      sql: SELECT band_id, COUNT(*) FROM shows GROUP BY band_id ORDER BY band_id;
+
+- slug: agrupado-por-duas-colunas
+  title: País e gênero
+  difficulty: facil
+  in: [dml/GROUP BY, aggregate-queries/GROUP BY]
+  statement: |
+    Conte quantas bandas existem para cada combinação de `country` e `genre`. Ordene por país e depois por gênero.
+  ordered: true
+  solution: |
+    SELECT country, genre, COUNT(*) AS total
+    FROM bands
+    GROUP BY country, genre
+    ORDER BY country, genre;
+  hints:
+    - GROUP BY aceita mais de uma coluna.
+  explanation: |
+    Cada combinação distinta forma um grupo. Toda coluna não agregada do SELECT deve estar no GROUP BY, e bancos como PostgreSQL exigem isso.
+  traps:
+    - reason: Agrupa só por país
+      sql: SELECT country, genre, COUNT(*) FROM bands GROUP BY country ORDER BY country, genre;
+
+- slug: shows-por-mes
+  title: Shows por mês
+  difficulty: medio
+  in: [dml/GROUP BY]
+  statement: |
+    Conte os shows de cada mês, com o mês no formato `AAAA-MM`. Ordene pelo mês.
+  ordered: true
+  solution: |
+    SELECT SUBSTR(show_date, 1, 7) AS mes, COUNT(*) AS total
+    FROM shows
+    GROUP BY mes
+    ORDER BY mes;
+  hints:
+    - Dá para agrupar pelo resultado de uma expressão.
+  explanation: |
+    Agrupar por uma expressão é comum em relatórios por período. `strftime('%Y-%m', show_date)` chegaria ao mesmo resultado.
+  traps:
+    - reason: Junta o mesmo mês de anos diferentes
+      sql: SELECT SUBSTR(show_date, 6, 2) AS mes, COUNT(*) FROM shows GROUP BY mes ORDER BY mes;
+    - reason: Agrupa por dia
+      sql: SELECT show_date, COUNT(*) FROM shows GROUP BY show_date ORDER BY show_date;
+
+- slug: bandas-que-vendem
+  title: Bandas que venderam bem
+  difficulty: medio
+  in: [dml/HAVING, aggregate-queries/HAVING]
+  statement: |
+    Liste o nome das bandas com mais de 5 ingressos pagos no total, e esse total. Ordene pelo total decrescente e depois pelo nome.
+  ordered: true
+  solution: |
+    SELECT b.name, SUM(t.quantity) AS total
+    FROM bands b
+    JOIN shows s ON s.band_id = b.id
+    JOIN tickets t ON t.show_id = s.id
+    WHERE t.status = 'pago'
+    GROUP BY b.id
+    HAVING SUM(t.quantity) > 5
+    ORDER BY total DESC, b.name;
+  hints:
+    - WHERE filtra pedidos. HAVING filtra bandas depois da soma.
+  explanation: |
+    Esta query usa as duas cláusulas. WHERE descarta pedidos não pagos antes de somar, e HAVING descarta bandas depois de somar.
+  traps:
+    - reason: Conta reservas e cancelamentos
+      sql: SELECT b.name, SUM(t.quantity) AS total FROM bands b JOIN shows s ON s.band_id = b.id JOIN tickets t ON t.show_id = s.id GROUP BY b.id HAVING SUM(t.quantity) > 5 ORDER BY total DESC, b.name;
+    - reason: Inclui totais baixos
+      sql: SELECT b.name, SUM(t.quantity) AS total FROM bands b JOIN shows s ON s.band_id = b.id JOIN tickets t ON t.show_id = s.id WHERE t.status = 'pago' GROUP BY b.id ORDER BY total DESC, b.name;
+
+- slug: casas-de-preco-alto
+  title: Casas de preço alto
+  difficulty: medio
+  in: [dml/HAVING, aggregate-queries/HAVING]
+  statement: |
+    Liste `venue_id` e a média de `ticket_price` das casas com pelo menos 2 shows e média acima de 100. Ordene por `venue_id`.
+  ordered: true
+  solution: |
+    SELECT venue_id, AVG(ticket_price) AS media
+    FROM shows
+    GROUP BY venue_id
+    HAVING COUNT(*) >= 2 AND AVG(ticket_price) > 100
+    ORDER BY venue_id;
+  hints:
+    - HAVING aceita mais de uma condição.
+  explanation: |
+    HAVING pode usar agregações que não estão no SELECT, como COUNT aqui. Elas podem se combinar com AND e OR.
+  traps:
+    - reason: Falta a regra de 2 shows
+      sql: SELECT venue_id, AVG(ticket_price) AS media FROM shows GROUP BY venue_id HAVING AVG(ticket_price) > 100 ORDER BY venue_id;
+    - reason: Falta a regra de média
+      sql: SELECT venue_id, AVG(ticket_price) AS media FROM shows GROUP BY venue_id HAVING COUNT(*) >= 2 ORDER BY venue_id;
+
+- slug: compradores-e-bandas
+  title: Quem comprou o quê
+  difficulty: medio
+  in: [dml/JOINs]
+  statement: |
+    Liste `buyer`, o nome da banda e a data do show para cada pedido com `status` igual a `pago`. Ordene por comprador, banda e data.
+  ordered: true
+  solution: |
+    SELECT t.buyer, b.name, s.show_date
+    FROM tickets t
+    JOIN shows s ON s.id = t.show_id
+    JOIN bands b ON b.id = s.band_id
+    WHERE t.status = 'pago'
+    ORDER BY t.buyer, b.name, s.show_date;
+  hints:
+    - tickets não aponta para bands. O caminho passa por shows.
+  explanation: |
+    Para ligar duas tabelas sem chave direta, passe por uma intermediária. Desenhar as chaves ajuda a enxergar o caminho.
+  traps:
+    - reason: Inclui todos os status
+      sql: SELECT t.buyer, b.name, s.show_date FROM tickets t JOIN shows s ON s.id = t.show_id JOIN bands b ON b.id = s.band_id ORDER BY t.buyer, b.name, s.show_date;
+    - reason: Liga pedido direto à banda
+      sql: SELECT t.buyer, b.name, s.show_date FROM tickets t JOIN shows s ON s.id = t.show_id JOIN bands b ON b.id = t.show_id WHERE t.status = 'pago' ORDER BY t.buyer, b.name, s.show_date;
+
+- slug: promocao-nacional
+  title: Promoção das bandas nacionais
+  difficulty: medio
+  in: [dml/UPDATE]
+  statement: |
+    Reduza em 10% o `price` dos produtos de bandas do `Brasil`. Os produtos das outras bandas e do festival não mudam.
+  ordered: true
+  check: SELECT id, ROUND(price, 2) FROM merch ORDER BY id;
+  solution: |
+    UPDATE merch
+    SET price = price * 0.9
+    WHERE band_id IN (SELECT id FROM bands WHERE country = 'Brasil');
+  hints:
+    - merch não tem país, mas tem band_id.
+  explanation: |
+    Uma subconsulta no WHERE permite usar dados de outra tabela no UPDATE. Sem ela, seria preciso ver os ids e digitá-los à mão.
+  traps:
+    - reason: Sem filtro
+      sql: UPDATE merch SET price = price * 0.9;
+    - reason: IDs fixos não valem em outros dados
+      sql: UPDATE merch SET price = price * 0.9 WHERE band_id IN (1, 2, 5, 7);
+
+- slug: estoque-das-encerradas
+  title: Zerar o estoque das encerradas
+  difficulty: medio
+  in: [dml/UPDATE]
+  statement: |
+    Zere o `stock` dos produtos de bandas encerradas, ou seja, com `disbanded_year` preenchido. Use uma subconsulta correlacionada ou `IN`.
+  ordered: true
+  check: SELECT id, stock FROM merch ORDER BY id;
+  setup: UPDATE merch SET band_id = (SELECT MIN(id) FROM bands WHERE disbanded_year IS NOT NULL) WHERE id = (SELECT MIN(id) FROM merch);
+  solution: |
+    UPDATE merch
+    SET stock = 0
+    WHERE band_id IN (SELECT id FROM bands WHERE disbanded_year IS NOT NULL);
+  hints:
+    - Encerrada significa disbanded_year não nulo.
+  explanation: |
+    Antes de rodar, veja quais linhas seriam afetadas com `SELECT ... WHERE`, usando a mesma condição.
+  traps:
+    - reason: Zera o estoque das bandas ativas
+      sql: UPDATE merch SET stock = 0 WHERE band_id IN (SELECT id FROM bands WHERE disbanded_year IS NULL);
+    - reason: Sem filtro
+      sql: UPDATE merch SET stock = 0;
+
+- slug: contatos-sem-veiculo
+  title: Contatos sem veículo
+  difficulty: facil
+  in: [dml/DELETE]
+  statement: |
+    Apague de `press_contacts` quem não tem veículo, seja com `outlet` nulo ou vazio.
+  ordered: true
+  check: SELECT id FROM press_contacts ORDER BY id;
+  solution: |
+    DELETE FROM press_contacts
+    WHERE outlet IS NULL OR outlet = '';
+  hints:
+    - NULL e texto vazio são coisas diferentes.
+  explanation: |
+    Nem sempre o dado ausente é NULL. Confira como a coluna é realmente usada antes de escrever o filtro.
+  traps:
+    - reason: Deixa os nulos
+      sql: DELETE FROM press_contacts WHERE outlet = '';
+    - reason: Deixa os vazios
+      sql: DELETE FROM press_contacts WHERE outlet IS NULL;
+
+- slug: apagar-por-subconsulta
+  title: Pedidos reservados de shows antigos
+  difficulty: medio
+  in: [dml/DELETE]
+  statement: |
+    Apague os pedidos com `status` igual a `reservado` de shows que acontecem antes de `2026-05-01`.
+  ordered: true
+  check: SELECT id FROM tickets ORDER BY id;
+  solution: |
+    DELETE FROM tickets
+    WHERE status = 'reservado'
+      AND show_id IN (SELECT id FROM shows WHERE show_date < '2026-05-01');
+  hints:
+    - A data está em outra tabela.
+  explanation: |
+    DELETE também aceita subconsultas no WHERE. Alguns bancos oferecem `DELETE ... USING` para fazer o mesmo com JOIN.
+  traps:
+    - reason: Todas as reservas
+      sql: DELETE FROM tickets WHERE status = 'reservado';
+    - reason: Data invertida
+      sql: DELETE FROM tickets WHERE status = 'reservado' AND show_id IN (SELECT id FROM shows WHERE show_date >= '2026-05-01');

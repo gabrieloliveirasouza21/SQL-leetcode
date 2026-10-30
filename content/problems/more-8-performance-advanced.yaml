@@ -1,0 +1,726 @@
+- slug: filtro-sem-funcao
+  title: Filtro que aproveita o índice
+  difficulty: medio
+  in: [performance-optimization/Using Indexes]
+  statement: |
+    Esta consulta não aproveita um índice em `show_date`, por aplicar uma função à coluna:
+
+    `SELECT id FROM shows WHERE SUBSTR(show_date, 1, 4) = '2026'`
+
+    Reescreva sem função na coluna, com um intervalo. Mantenha o resultado e ordene por `id`.
+  ordered: true
+  forbid: [SUBSTR, strftime, LIKE]
+  solution: |
+    SELECT id
+    FROM shows
+    WHERE show_date >= '2026-01-01' AND show_date < '2027-01-01'
+    ORDER BY id;
+  hints:
+    - Um intervalo mantém a coluna intacta, e o índice pode ser usado.
+  explanation: |
+    Uma condição que usa a coluna sem transformá-la é chamada de sargable. Trocar função por intervalo é uma das otimizações mais baratas que existem.
+  traps:
+    - reason: Ainda usa função
+      sql: SELECT id FROM shows WHERE SUBSTR(show_date, 1, 4) = '2026' ORDER BY id;
+    - reason: Exclui 31 de dezembro
+      sql: SELECT id FROM shows WHERE show_date >= '2026-01-01' AND show_date < '2026-12-31' ORDER BY id;
+
+- slug: indice-para-ordenacao
+  title: Índice que ajuda a ordenar
+  difficulty: medio
+  in: [performance-optimization/Using Indexes]
+  statement: |
+    A home do site roda `SELECT * FROM shows ORDER BY show_date DESC LIMIT 10`. Crie um índice em `shows` para atender a essa ordenação, em uma única coluna.
+  ordered: true
+  check: SELECT ii.name FROM sqlite_master m, pragma_index_info(m.name) ii WHERE m.type = 'index' AND m.tbl_name = 'shows' ORDER BY ii.seqno;
+  solution: |
+    CREATE INDEX idx_shows_date ON shows (show_date);
+  hints:
+    - Com o índice, o banco lê as primeiras linhas já em ordem.
+  explanation: |
+    Sem índice, o banco ordena a tabela inteira para devolver 10 linhas. Com ele, para na décima, e o custo quase não cresce com o tamanho da tabela.
+  traps:
+    - reason: Coluna errada
+      sql: CREATE INDEX i ON shows (band_id);
+
+- slug: join-sem-distinct
+  title: DISTINCT escondendo join duplicado
+  difficulty: medio
+  in: [performance-optimization/Optimizing Joins]
+  statement: |
+    Esta consulta usa `DISTINCT` para esconder as linhas duplicadas pelo JOIN:
+
+    `SELECT DISTINCT b.name FROM bands b JOIN shows s ON s.band_id = b.id ORDER BY b.name`
+
+    Reescreva com `EXISTS`, sem `JOIN` nem `DISTINCT`.
+  ordered: true
+  must_use: [EXISTS]
+  forbid: [JOIN, DISTINCT]
+  solution: |
+    SELECT b.name
+    FROM bands b
+    WHERE EXISTS (SELECT 1 FROM shows s WHERE s.band_id = b.id)
+    ORDER BY b.name;
+  hints:
+    - Você só quer saber se existe show, não quantos.
+  explanation: |
+    DISTINCT em cima de JOIN é um sinal de alerta. O banco gera linhas repetidas só para depois eliminá-las. EXISTS para no primeiro par encontrado.
+  traps:
+    - reason: Ainda usa JOIN
+      sql: SELECT DISTINCT b.name FROM bands b JOIN shows s ON s.band_id = b.id ORDER BY b.name;
+
+- slug: agregar-antes-de-juntar
+  title: Agregar antes de juntar
+  difficulty: dificil
+  in: [performance-optimization/Optimizing Joins]
+  statement: |
+    Retorne `name` de cada banda com show e o total de ingressos pagos dela, com 0 se não houver. Agregue `tickets` por `show_id` em uma subconsulta antes do JOIN, para reduzir as linhas envolvidas. Ordene por nome.
+  ordered: true
+  must_use: ['(SELECT']
+  solution: |
+    SELECT b.name, SUM(COALESCE(v.total, 0)) AS vendidos
+    FROM bands b
+    JOIN shows s ON s.band_id = b.id
+    LEFT JOIN (
+      SELECT show_id, SUM(quantity) AS total
+      FROM tickets
+      WHERE status = 'pago'
+      GROUP BY show_id
+    ) v ON v.show_id = s.id
+    GROUP BY b.id
+    ORDER BY b.name;
+  hints:
+    - A subconsulta reduz tickets a uma linha por show.
+  explanation: |
+    Reduzir as linhas antes de um JOIN costuma baratear a consulta. Bons otimizadores às vezes fazem isso sozinhos, por isso confirme no plano.
+  traps:
+    - reason: Sem tratar shows sem venda
+      sql: SELECT b.name, SUM(v.total) FROM bands b JOIN shows s ON s.band_id = b.id JOIN (SELECT show_id, SUM(quantity) AS total FROM tickets WHERE status = 'pago' GROUP BY show_id) v ON v.show_id = s.id GROUP BY b.id ORDER BY b.name;
+
+- slug: reduzir-com-window
+  title: Trocar subquery por window function
+  difficulty: dificil
+  in: [performance-optimization/Reducing Subqueries]
+  statement: |
+    Esta consulta recalcula a média por banda para cada linha:
+
+    `SELECT id, ticket_price, (SELECT AVG(o.ticket_price) FROM shows o WHERE o.band_id = s.band_id) FROM shows s ORDER BY id`
+
+    Reescreva com uma window function e sem subqueries, com o mesmo resultado.
+  ordered: true
+  must_use: [OVER]
+  forbid: ['(SELECT']
+  solution: |
+    SELECT id, ticket_price, AVG(ticket_price) OVER (PARTITION BY band_id) AS media
+    FROM shows
+    ORDER BY id;
+  hints:
+    - Uma agregação com OVER não colapsa as linhas.
+  explanation: |
+    A window function calcula a média de cada grupo em uma passada e pode ser muito mais barata que uma subconsulta correlacionada.
+  traps:
+    - reason: Média global
+      sql: SELECT id, ticket_price, AVG(ticket_price) OVER () FROM shows ORDER BY id;
+
+- slug: cte-em-vez-de-repetir
+  title: Uma CTE em vez de repetir
+  difficulty: medio
+  in: [performance-optimization/Reducing Subqueries]
+  statement: |
+    Liste `band_id` e o total de shows das bandas com o maior total. Use uma CTE para não repetir a contagem. Ordene por `band_id`.
+  ordered: true
+  must_use: [WITH]
+  solution: |
+    WITH totais AS (
+      SELECT band_id, COUNT(*) AS total
+      FROM shows
+      GROUP BY band_id
+    )
+    SELECT band_id, total
+    FROM totais
+    WHERE total = (SELECT MAX(total) FROM totais)
+    ORDER BY band_id;
+  hints:
+    - A CTE pode ser usada mais de uma vez na mesma consulta.
+  explanation: |
+    Uma CTE evita duplicar lógica. O ganho é sobretudo em legibilidade, e o desempenho depende de como o banco a executa.
+  traps:
+    - reason: Corta empates
+      sql: WITH totais AS (SELECT band_id, COUNT(*) AS total FROM shows GROUP BY band_id) SELECT band_id, total FROM totais ORDER BY total DESC, band_id LIMIT 1;
+
+- slug: union-all-e-mais-barato
+  title: UNION ou UNION ALL
+  difficulty: medio
+  in: [performance-optimization/Selective Projection]
+  statement: |
+    Liste `id` e a origem de cada linha, com `show` para ids de `shows` e `pedido` para ids de `tickets`. As duas partes nunca colidem, porque a origem é diferente. Use a operação mais barata. Ordene por origem e depois por `id`.
+  ordered: true
+  must_use: [UNION ALL]
+  solution: |
+    SELECT id, 'show' AS origem FROM shows
+    UNION ALL
+    SELECT id, 'pedido' FROM tickets
+    ORDER BY origem, id;
+  hints:
+    - UNION elimina duplicatas, e isso tem custo.
+  explanation: |
+    UNION ordena ou faz hash de tudo para encontrar repetições. Se elas não existem, ou não importam, UNION ALL faz menos trabalho.
+  traps:
+    - reason: UNION remove duplicatas sem necessidade
+      sql: SELECT id, 'show' AS origem FROM shows UNION SELECT id, 'pedido' FROM tickets ORDER BY origem, id;
+
+- slug: so-colunas-do-relatorio
+  title: Largura do resultado
+  difficulty: facil
+  in: [performance-optimization/Selective Projection]
+  statement: |
+    O app só usa nome e cidade das casas com capacidade acima de 1000. Retorne apenas essas duas colunas, por nome, sem `SELECT *`.
+  ordered: true
+  forbid: [SELECT *]
+  solution: |
+    SELECT name, city
+    FROM venues
+    WHERE capacity > 1000
+    ORDER BY name;
+  hints:
+    - O filtro pode usar uma coluna que não aparece no resultado.
+  explanation: |
+    Uma coluna pode estar no WHERE sem estar no SELECT. Pedir só o necessário também permite índices de cobertura, que nem precisam ler a tabela.
+  traps:
+    - reason: Coluna a mais
+      sql: SELECT name, city, capacity FROM venues WHERE capacity > 1000 ORDER BY name;
+
+- slug: n-mais-um
+  title: O problema N+1
+  difficulty: medio
+  in: [performance-optimization/Query Analysis Techniques]
+  statement: |
+    Uma tela lista 100 bandas. Para cada uma, o código faz outra consulta buscando os shows. Os logs mostram 101 consultas. O que fazer?
+  options:
+    - text: Buscar tudo de uma vez, com JOIN ou com IN sobre os ids
+      why: Certo. Uma ou duas consultas substituem as 101, e as idas e voltas pela rede somem.
+    - text: Colocar um índice na coluna name
+      why: Pode ajudar em outro caso, mas ainda seriam 101 consultas.
+    - text: Aumentar o tempo limite da página
+      why: Esconde o sintoma, sem reduzir o trabalho.
+    - text: Trocar o banco de dados
+      why: O problema está em como o código pergunta, não no banco.
+  answer: 0
+  hints: []
+  explanation: |
+    N+1 é um dos problemas mais comuns com ORMs, porque cada consulta parece inofensiva. Contar consultas por página ajuda a detectá-lo.
+  traps: []
+
+- slug: explain-analyze
+  title: Estimado ou real?
+  difficulty: dificil
+  in: [performance-optimization/Query Analysis Techniques]
+  statement: |
+    No PostgreSQL, `EXPLAIN ANALYZE` mostra que o plano esperava 10 linhas, mas recebeu 2 milhões. O que isso sugere?
+  options:
+    - text: Estatísticas desatualizadas, que levaram o planejador a uma escolha ruim
+      why: Certo. Rodar ANALYZE atualiza as estatísticas e pode mudar o plano.
+    - text: A tabela está corrompida
+      why: Uma estimativa errada não indica corrupção.
+    - text: A consulta retornou o resultado errado
+      why: O plano afeta o custo, não o resultado.
+    - text: Falta chave primária na tabela
+      why: A chave não determina as estimativas de forma tão direta.
+  answer: 0
+  hints: []
+  explanation: |
+    Grandes diferenças entre estimado e real são a pista mais valiosa de um plano. Lembre-se de que EXPLAIN ANALYZE executa a consulta, então cuidado com UPDATE e DELETE.
+  traps: []
+
+- slug: dois-maiores-pedidos
+  title: Só os dois maiores pedidos
+  difficulty: dificil
+  in: [advanced-sql/Window Functions, advanced-sql/row_number]
+  statement: |
+    Para cada show, retorne `show_id`, `id` e `quantity` dos 2 maiores pedidos pagos. Em caso de empate na quantidade, vem primeiro o menor `id`. Ordene por `show_id` e pela posição.
+  ordered: true
+  solution: |
+    WITH ranqueados AS (
+      SELECT
+        show_id,
+        id,
+        quantity,
+        ROW_NUMBER() OVER (PARTITION BY show_id ORDER BY quantity DESC, id) AS posicao
+      FROM tickets
+      WHERE status = 'pago'
+    )
+    SELECT show_id, id, quantity
+    FROM ranqueados
+    WHERE posicao <= 2
+    ORDER BY show_id, posicao;
+  hints:
+    - Este é o padrão top N por grupo.
+  explanation: |
+    LIMIT vale para o resultado inteiro. Para limitar por grupo, numere dentro da partição e filtre por fora.
+  traps:
+    - reason: LIMIT é global
+      sql: SELECT show_id, id, quantity FROM tickets WHERE status = 'pago' ORDER BY show_id, quantity DESC, id LIMIT 2;
+    - reason: Só o maior
+      sql: WITH r AS (SELECT show_id, id, quantity, ROW_NUMBER() OVER (PARTITION BY show_id ORDER BY quantity DESC, id) AS p FROM tickets WHERE status = 'pago') SELECT show_id, id, quantity FROM r WHERE p = 1 ORDER BY show_id, p;
+
+- slug: acumulado-de-receita
+  title: Receita acumulada
+  difficulty: dificil
+  in: [advanced-sql/Window Functions]
+  statement: |
+    Considere todos os shows em ordem de data e, em caso de empate, de `id`. Retorne `id`, `show_date`, `ticket_price` e a soma acumulada dos preços até aquela linha.
+  ordered: true
+  solution: |
+    SELECT
+      id,
+      show_date,
+      ticket_price,
+      SUM(ticket_price) OVER (ORDER BY show_date, id) AS acumulado
+    FROM shows
+    ORDER BY show_date, id;
+  hints:
+    - SUM com OVER e ORDER BY vira uma soma corrida.
+  explanation: |
+    Com ORDER BY dentro de OVER, a janela vai do início até a linha atual. Sem o desempate por id, linhas com a mesma data receberiam o mesmo acumulado.
+  traps:
+    - reason: Sem desempate, datas iguais recebem o mesmo valor
+      sql: SELECT id, show_date, ticket_price, SUM(ticket_price) OVER (ORDER BY show_date) FROM shows ORDER BY show_date, id;
+    - reason: Total geral em todas as linhas
+      sql: SELECT id, show_date, ticket_price, SUM(ticket_price) OVER () FROM shows ORDER BY show_date, id;
+
+- slug: media-movel
+  title: Média móvel de preços
+  difficulty: dificil
+  in: [advanced-sql/Window Functions]
+  statement: |
+    Em ordem de data e `id`, retorne `id` e a média do preço da linha atual com as duas anteriores, arredondada para 2 casas.
+  ordered: true
+  must_use: [ROWS BETWEEN]
+  solution: |
+    SELECT
+      id,
+      ROUND(AVG(ticket_price) OVER (
+        ORDER BY show_date, id
+        ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+      ), 2) AS media
+    FROM shows
+    ORDER BY show_date, id;
+  hints:
+    - A cláusula de quadro define quais linhas entram no cálculo.
+  explanation: |
+    ROWS define a janela em linhas físicas. Nas primeiras linhas, a janela é menor, e a média usa só o que existe.
+  traps:
+    - reason: Duas seguintes, não duas anteriores
+      sql: SELECT id, ROUND(AVG(ticket_price) OVER (ORDER BY show_date, id ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING), 2) FROM shows ORDER BY show_date, id;
+    - reason: Só uma anterior
+      sql: SELECT id, ROUND(AVG(ticket_price) OVER (ORDER BY show_date, id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW), 2) FROM shows ORDER BY show_date, id;
+
+- slug: participacao-na-banda
+  title: Peso de cada show na banda
+  difficulty: dificil
+  in: [advanced-sql/Window Functions]
+  statement: |
+    Para cada show, retorne `id` e a porcentagem do preço dele na soma dos preços da mesma banda, arredondada para 2 casas. Ordene por `id`.
+  ordered: true
+  solution: |
+    SELECT
+      id,
+      ROUND(ticket_price * 100.0 / SUM(ticket_price) OVER (PARTITION BY band_id), 2) AS pct
+    FROM shows
+    ORDER BY id;
+  hints:
+    - Uma window function pode entrar em uma expressão.
+  explanation: |
+    Esse padrão substitui um JOIN com um agregado por grupo. Cada linha enxerga o total do seu grupo sem perder o próprio detalhe.
+  traps:
+    - reason: Total de todas as bandas
+      sql: SELECT id, ROUND(ticket_price * 100.0 / SUM(ticket_price) OVER (), 2) FROM shows ORDER BY id;
+
+- slug: rank-por-pais
+  title: Ranking dentro do país
+  difficulty: medio
+  in: [advanced-sql/rank]
+  statement: |
+    Ranqueie as bandas de cada país pelo ano de formação, da mais antiga para a mais nova. Empates dividem a posição, e a próxima pula números. Retorne `country`, `name` e a posição, ordenados por país, posição e nome.
+  ordered: true
+  solution: |
+    SELECT
+      country,
+      name,
+      RANK() OVER (PARTITION BY country ORDER BY formed_year) AS posicao
+    FROM bands
+    ORDER BY country, posicao, name;
+  hints:
+    - RANK deixa buracos depois de empates.
+  explanation: |
+    RANK reflete quantas linhas vieram antes. Em uma competição, dois primeiros lugares são seguidos de um terceiro.
+  traps:
+    - reason: DENSE_RANK não pula números
+      sql: SELECT country, name, DENSE_RANK() OVER (PARTITION BY country ORDER BY formed_year) AS posicao FROM bands ORDER BY country, posicao, name;
+    - reason: Ranking global
+      sql: SELECT country, name, RANK() OVER (ORDER BY formed_year) AS posicao FROM bands ORDER BY country, posicao, name;
+
+- slug: dense-por-casa
+  title: Os dois maiores preços de cada casa
+  difficulty: dificil
+  in: [advanced-sql/dense_rank]
+  statement: |
+    Para cada casa, liste os shows com os 2 maiores valores distintos de preço. Empates entram. Retorne `venue_id`, `id` e `ticket_price`, ordenados por casa, preço decrescente e `id`.
+  ordered: true
+  solution: |
+    WITH r AS (
+      SELECT
+        venue_id,
+        id,
+        ticket_price,
+        DENSE_RANK() OVER (PARTITION BY venue_id ORDER BY ticket_price DESC) AS posicao
+      FROM shows
+    )
+    SELECT venue_id, id, ticket_price
+    FROM r
+    WHERE posicao <= 2
+    ORDER BY venue_id, ticket_price DESC, id;
+  hints:
+    - Com "valores distintos", empates não gastam posição.
+  explanation: |
+    DENSE_RANK é a escolha certa quando a pergunta fala em valores distintos. Com RANK, um empate em primeiro lugar eliminaria o segundo valor.
+  traps:
+    - reason: RANK gasta posição em empates
+      sql: WITH r AS (SELECT venue_id, id, ticket_price, RANK() OVER (PARTITION BY venue_id ORDER BY ticket_price DESC) AS p FROM shows) SELECT venue_id, id, ticket_price FROM r WHERE p <= 2 ORDER BY venue_id, ticket_price DESC, id;
+    - reason: ROW_NUMBER corta empates
+      sql: WITH r AS (SELECT venue_id, id, ticket_price, ROW_NUMBER() OVER (PARTITION BY venue_id ORDER BY ticket_price DESC, id) AS p FROM shows) SELECT venue_id, id, ticket_price FROM r WHERE p <= 2 ORDER BY venue_id, ticket_price DESC, id;
+
+- slug: dias-ate-proximo
+  title: Dias até o próximo show
+  difficulty: dificil
+  in: [advanced-sql/lead]
+  statement: |
+    Para cada show, retorne `band_id`, `show_date` e quantos dias faltam para o próximo show da mesma banda, com nulo no último. Em datas iguais, o desempate é pelo `id`. Ordene por banda, data e `id`.
+
+    `JULIANDAY` converte data em número de dias.
+  ordered: true
+  solution: |
+    SELECT
+      band_id,
+      show_date,
+      JULIANDAY(LEAD(show_date) OVER (PARTITION BY band_id ORDER BY show_date, id)) - JULIANDAY(show_date) AS dias
+    FROM shows
+    ORDER BY band_id, show_date, id;
+  hints:
+    - Primeiro traga a próxima data com LEAD. Depois, calcule a diferença.
+  explanation: |
+    LEAD aproxima duas linhas e permite qualquer cálculo entre elas. Esse padrão é a base de análises de intervalos.
+  traps:
+    - reason: Olha o show anterior
+      sql: SELECT band_id, show_date, JULIANDAY(show_date) - JULIANDAY(LAG(show_date) OVER (PARTITION BY band_id ORDER BY show_date, id)) FROM shows ORDER BY band_id, show_date, id;
+
+- slug: lag-de-preco
+  title: Mudou o preço?
+  difficulty: medio
+  in: [advanced-sql/lag]
+  statement: |
+    Liste `band_id`, `show_date`, `ticket_price` e o preço do show anterior da mesma banda, com nulo no primeiro. Em datas iguais, o desempate é pelo `id`. Ordene por banda, data e `id`.
+  ordered: true
+  solution: |
+    SELECT
+      band_id,
+      show_date,
+      ticket_price,
+      LAG(ticket_price) OVER (PARTITION BY band_id ORDER BY show_date, id) AS anterior
+    FROM shows
+    ORDER BY band_id, show_date, id;
+  hints:
+    - LAG aceita um segundo argumento para olhar mais de uma linha atrás.
+  explanation: |
+    LAG também aceita um valor padrão no terceiro argumento, como `LAG(preco, 1, 0)`, para substituir o nulo da primeira linha.
+  traps:
+    - reason: LEAD olha para a frente
+      sql: SELECT band_id, show_date, ticket_price, LEAD(ticket_price) OVER (PARTITION BY band_id ORDER BY show_date, id) FROM shows ORDER BY band_id, show_date, id;
+
+- slug: desde-o-primeiro-preco
+  title: Quanto subiu desde o primeiro
+  difficulty: dificil
+  in: [advanced-sql/first_value]
+  statement: |
+    Para cada show, retorne `id`, `ticket_price` e a diferença em relação ao preço do primeiro show da mesma banda, definido por data e `id`. Ordene por `id`.
+  ordered: true
+  must_use: [FIRST_VALUE]
+  solution: |
+    SELECT
+      id,
+      ticket_price,
+      ticket_price - FIRST_VALUE(ticket_price) OVER (PARTITION BY band_id ORDER BY show_date, id) AS diferenca
+    FROM shows
+    ORDER BY id;
+  hints:
+    - FIRST_VALUE pode ser usado em uma expressão.
+  explanation: |
+    Comparar tudo com uma linha de referência é comum em análises de evolução. Usar MIN aqui estaria errado, porque o primeiro nem sempre é o mais barato.
+  traps:
+    - reason: Sem partição
+      sql: SELECT id, ticket_price, ticket_price - FIRST_VALUE(ticket_price) OVER (ORDER BY show_date, id) FROM shows ORDER BY id;
+
+- slug: cte-em-etapas
+  title: Um relatório em etapas
+  difficulty: dificil
+  in: [advanced-sql/Common Table Expressions]
+  statement: |
+    Em etapas com CTEs, calcule a receita paga por banda, depois a média dessas receitas e, por fim, liste o nome das bandas acima da média com a receita. Ordene pela receita decrescente e depois pelo nome.
+  ordered: true
+  must_use: [WITH]
+  solution: |
+    WITH receita AS (
+      SELECT s.band_id, SUM(t.quantity * s.ticket_price) AS total
+      FROM shows s
+      JOIN tickets t ON t.show_id = s.id
+      WHERE t.status = 'pago'
+      GROUP BY s.band_id
+    ),
+    media AS (
+      SELECT AVG(total) AS valor FROM receita
+    )
+    SELECT b.name, r.total
+    FROM receita r
+    JOIN bands b ON b.id = r.band_id
+    CROSS JOIN media m
+    WHERE r.total > m.valor
+    ORDER BY r.total DESC, b.name;
+  hints:
+    - Uma CTE pode usar a anterior.
+  explanation: |
+    CTEs transformam uma consulta longa em uma sequência de passos com nome. Cada passo pode ser testado separadamente durante o desenvolvimento.
+  traps:
+    - reason: Inclui abaixo da média
+      sql: WITH receita AS (SELECT s.band_id, SUM(t.quantity * s.ticket_price) AS total FROM shows s JOIN tickets t ON t.show_id = s.id WHERE t.status = 'pago' GROUP BY s.band_id) SELECT b.name, r.total FROM receita r JOIN bands b ON b.id = r.band_id ORDER BY r.total DESC, b.name;
+
+- slug: cte-simples
+  title: Primeira CTE
+  difficulty: facil
+  in: [advanced-sql/Common Table Expressions]
+  statement: |
+    Com uma CTE chamada `caros`, selecione os shows com preço acima de 200. Depois, retorne `id` e `ticket_price` a partir dela, ordenados por `id`.
+  ordered: true
+  must_use: [WITH, caros]
+  solution: |
+    WITH caros AS (
+      SELECT id, ticket_price
+      FROM shows
+      WHERE ticket_price > 200
+    )
+    SELECT id, ticket_price
+    FROM caros
+    ORDER BY id;
+  hints:
+    - A sintaxe é WITH nome AS (consulta) SELECT ...
+  explanation: |
+    Uma CTE é uma consulta com nome, visível só no comando atual. Ela não cria nada permanente no banco.
+  traps:
+    - reason: Limite errado
+      sql: WITH caros AS (SELECT id, ticket_price FROM shows WHERE ticket_price > 100) SELECT id, ticket_price FROM caros ORDER BY id;
+
+- slug: cte-com-update
+  title: CTE para encontrar quem alterar
+  difficulty: dificil
+  in: [advanced-sql/Common Table Expressions]
+  statement: |
+    Com uma CTE, encontre as bandas cujo show mais caro passa de 200. Depois, marque esses produtos: aumente em 5% o `price` em `merch` dessas bandas.
+  ordered: true
+  must_use: [WITH, UPDATE]
+  check: SELECT id, ROUND(price, 2) FROM merch ORDER BY id;
+  solution: |
+    WITH caras AS (
+      SELECT band_id
+      FROM shows
+      GROUP BY band_id
+      HAVING MAX(ticket_price) > 200
+    )
+    UPDATE merch
+    SET price = price * 1.05
+    WHERE band_id IN (SELECT band_id FROM caras);
+  hints:
+    - No SQLite, o WITH pode vir antes de UPDATE.
+  explanation: |
+    CTEs também funcionam antes de INSERT, UPDATE e DELETE. Isso ajuda a separar a escolha das linhas da alteração em si.
+  traps:
+    - reason: Sem filtro
+      sql: WITH caras AS (SELECT band_id FROM shows GROUP BY band_id HAVING MAX(ticket_price) > 200) UPDATE merch SET price = price * 1.05;
+
+- slug: calendario-de-marco
+  title: Um calendário gerado
+  difficulty: dificil
+  in: [advanced-sql/Recursive Queries]
+  statement: |
+    Com uma CTE recursiva, gere todas as datas de `2026-03-14` a `2026-03-20` e, para cada uma, conte os shows. Dias sem show aparecem com 0. Retorne a data e o total, em ordem de data.
+  ordered: true
+  must_use: [RECURSIVE]
+  solution: |
+    WITH RECURSIVE dias (dia) AS (
+      SELECT '2026-03-14'
+      UNION ALL
+      SELECT DATE(dia, '+1 day')
+      FROM dias
+      WHERE dia < '2026-03-20'
+    )
+    SELECT d.dia, COUNT(s.id) AS total
+    FROM dias d
+    LEFT JOIN shows s ON s.show_date = d.dia
+    GROUP BY d.dia
+    ORDER BY d.dia;
+  hints:
+    - Comece em uma data. Cada passo soma um dia, até o limite.
+  explanation: |
+    Gerar uma sequência e fazer LEFT JOIN é o jeito de mostrar períodos sem dados. Sem isso, os dias vazios simplesmente desaparecem de um relatório.
+  traps:
+    - reason: Dias sem show somem
+      sql: SELECT show_date, COUNT(*) FROM shows WHERE show_date BETWEEN '2026-03-14' AND '2026-03-20' GROUP BY show_date ORDER BY show_date;
+    - reason: INNER JOIN esconde os zeros
+      sql: WITH RECURSIVE dias (dia) AS (SELECT '2026-03-14' UNION ALL SELECT DATE(dia, '+1 day') FROM dias WHERE dia < '2026-03-20') SELECT d.dia, COUNT(s.id) FROM dias d JOIN shows s ON s.show_date = d.dia GROUP BY d.dia ORDER BY d.dia;
+
+- slug: quem-veio-antes
+  title: Subindo a árvore
+  difficulty: dificil
+  in: [advanced-sql/Recursive Queries]
+  statement: |
+    Ana Ferro quer saber de quem aprendeu. Partindo dela, suba a cadeia de mentores. Retorne `name` e a distância, com 1 para o mentor direto, 2 para o mentor do mentor, e assim por diante. Ana não entra. Ordene pela distância.
+
+    Quem não tem mentores gera um resultado vazio.
+  ordered: true
+  must_use: [RECURSIVE]
+  setup: UPDATE members SET mentor_id = (SELECT MIN(id) FROM members WHERE name = 'Fred Stone') WHERE name = 'Ana Ferro';
+  solution: |
+    WITH RECURSIVE acima (id, name, mentor_id, nivel) AS (
+      SELECT id, name, mentor_id, 0
+      FROM members
+      WHERE name = 'Ana Ferro'
+      UNION ALL
+      SELECT m.id, m.name, m.mentor_id, a.nivel + 1
+      FROM members m
+      JOIN acima a ON m.id = a.mentor_id
+    )
+    SELECT name, nivel
+    FROM acima
+    WHERE nivel > 0
+    ORDER BY nivel;
+  hints:
+    - O JOIN vai na direção oposta à do problema da linhagem.
+  explanation: |
+    A direção da recursão depende do JOIN. `m.id = a.mentor_id` sobe a árvore, e `m.mentor_id = a.id` desce.
+  traps:
+    - reason: Desce em vez de subir
+      sql: WITH RECURSIVE acima (id, name, nivel) AS (SELECT id, name, 0 FROM members WHERE name = 'Ana Ferro' UNION ALL SELECT m.id, m.name, a.nivel + 1 FROM members m JOIN acima a ON m.mentor_id = a.id) SELECT name, nivel FROM acima WHERE nivel > 0 ORDER BY nivel;
+
+- slug: caminho-do-mentor
+  title: O caminho completo
+  difficulty: dificil
+  in: [advanced-sql/Recursive Queries]
+  statement: |
+    Para cada músico, monte o caminho desde a raiz da árvore, com os nomes separados por ` > `, como em `Ana Ferro > Beto Lima`. Raízes são os músicos sem mentor. Retorne `name` e o caminho, por caminho.
+  ordered: true
+  must_use: [RECURSIVE]
+  solution: |
+    WITH RECURSIVE arvore (id, name, caminho) AS (
+      SELECT id, name, name
+      FROM members
+      WHERE mentor_id IS NULL
+      UNION ALL
+      SELECT m.id, m.name, a.caminho || ' > ' || m.name
+      FROM members m
+      JOIN arvore a ON m.mentor_id = a.id
+    )
+    SELECT name, caminho
+    FROM arvore
+    ORDER BY caminho;
+  hints:
+    - A cada passo, o caminho anterior é acrescido do nome atual.
+  explanation: |
+    Acumular valores em uma coluna permite montar caminhos e detectar ciclos. Essa técnica serve para categorias, organogramas e menus.
+  traps:
+    - reason: Só o nome e o mentor direto
+      sql: SELECT m.name, COALESCE(o.name || ' > ', '') || m.name AS caminho FROM members m LEFT JOIN members o ON o.id = m.mentor_id ORDER BY caminho;
+
+- slug: entradas-por-portao-e-dia
+  title: Portões em colunas
+  difficulty: medio
+  in: [advanced-sql/Pivot / Unpivot Operations]
+  statement: |
+    Para cada dia, retorne a data e o número de entradas nos portões `Norte`, `Sul` e `Leste`, nessa ordem, com 0 quando não houver. Ordene pela data.
+  ordered: true
+  solution: |
+    SELECT
+      DATE(scanned_at) AS dia,
+      SUM(CASE WHEN gate = 'Norte' THEN 1 ELSE 0 END) AS norte,
+      SUM(CASE WHEN gate = 'Sul' THEN 1 ELSE 0 END) AS sul,
+      SUM(CASE WHEN gate = 'Leste' THEN 1 ELSE 0 END) AS leste
+    FROM checkins
+    GROUP BY dia
+    ORDER BY dia;
+  hints:
+    - Um CASE para cada coluna nova.
+  explanation: |
+    COUNT com CASE sem ELSE também funciona, porque ignora nulos. Portões fora da lista não aparecem como coluna, e essa é a limitação do pivot.
+  traps:
+    - reason: Sem separar por portão
+      sql: SELECT DATE(scanned_at) AS dia, COUNT(*), 0, 0 FROM checkins GROUP BY dia ORDER BY dia;
+
+- slug: produto-em-linhas
+  title: Preço e estoque em linhas
+  difficulty: medio
+  in: [advanced-sql/Pivot / Unpivot Operations]
+  statement: |
+    Transforme as colunas `price` e `stock` de `merch` em linhas com `id`, medida e valor. A medida é `preco` ou `estoque`. Ordene por `id` e depois por medida.
+  ordered: true
+  must_use: [UNION ALL]
+  solution: |
+    SELECT id, 'preco' AS medida, price AS valor FROM merch
+    UNION ALL
+    SELECT id, 'estoque', stock FROM merch
+    ORDER BY 1, 2;
+  hints:
+    - Cada coluna vira um SELECT.
+  explanation: |
+    Unpivot é útil para gráficos e ferramentas que esperam um formato longo. No PostgreSQL, um `CROSS JOIN LATERAL` com VALUES faz o mesmo.
+  traps:
+    - reason: Falta o estoque
+      sql: SELECT id, 'preco', price FROM merch ORDER BY 1, 2;
+
+- slug: dinamico-valores
+  title: O que vai em parâmetro?
+  difficulty: medio
+  in: [advanced-sql/Dynamic SQL]
+  statement: |
+    Um filtro opcional monta o SQL de busca. Qual trecho deve usar parâmetro, em vez de ser concatenado?
+  options:
+    - text: O nome da banda digitado pela pessoa
+      why: Certo. Valores vindos de fora sempre vão em parâmetros.
+    - text: O texto fixo AND genre = ? escrito no código
+      why: Esse trecho é seguro, porque é controlado pelo código. O valor dentro dele é que vai como parâmetro.
+    - text: A palavra-chave SELECT
+      why: Palavras-chave são parte do comando, não dados.
+    - text: O nome da tabela shows escrito no código
+      why: É um valor fixo do código, sem entrada externa.
+  answer: 0
+  hints: []
+  explanation: |
+    O perigo não é montar SQL dinamicamente, e sim misturar entrada externa ao comando. Trechos fixos do código podem ser combinados com segurança.
+  traps: []
+
+- slug: dinamico-no-banco
+  title: EXECUTE dentro do banco
+  difficulty: dificil
+  in: [advanced-sql/Dynamic SQL]
+  statement: |
+    Uma função no PostgreSQL recebe o nome de uma tabela e faz `EXECUTE 'SELECT COUNT(*) FROM ' || nome`. Como tornar isso seguro?
+  options:
+    - text: Usar format com %I, que trata o valor como identificador, e validar contra uma lista permitida
+      why: Certo. %I escapa corretamente o nome, e a lista limita o que pode ser acessado.
+    - text: Trocar EXECUTE por um comentário
+      why: Assim a função deixaria de executar a consulta.
+    - text: Passar o nome em maiúsculas
+      why: Maiúsculas não impedem injeção.
+    - text: Não há risco, porque está dentro do banco
+      why: SQL dinâmico sofre injeção em qualquer camada.
+  answer: 0
+  hints: []
+  explanation: |
+    No PostgreSQL, `%I` serve para identificadores, e `%L` para valores literais. Para valores, `EXECUTE ... USING` é ainda melhor.
+  traps: []

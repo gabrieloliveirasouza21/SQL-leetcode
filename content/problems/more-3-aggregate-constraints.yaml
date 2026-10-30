@@ -1,0 +1,522 @@
+- slug: receita-por-show
+  title: Receita de cada show
+  difficulty: medio
+  in: [aggregate-queries/SUM]
+  statement: |
+    Para cada show com pedido pago, retorne o `id` do show e a receita, que é a soma de `quantity` vezes `ticket_price`. Ordene pela receita decrescente e depois pelo `id`.
+  ordered: true
+  solution: |
+    SELECT s.id, SUM(t.quantity * s.ticket_price) AS receita
+    FROM shows s
+    JOIN tickets t ON t.show_id = s.id
+    WHERE t.status = 'pago'
+    GROUP BY s.id
+    ORDER BY receita DESC, s.id;
+  hints:
+    - SUM pode receber uma expressão inteira.
+  explanation: |
+    A multiplicação acontece linha a linha, e só depois os resultados são somados. Multiplicar duas somas daria outro número.
+  traps:
+    - reason: Soma ingressos, não receita
+      sql: SELECT s.id, SUM(t.quantity) AS receita FROM shows s JOIN tickets t ON t.show_id = s.id WHERE t.status = 'pago' GROUP BY s.id ORDER BY receita DESC, s.id;
+    - reason: Inclui pedidos não pagos
+      sql: SELECT s.id, SUM(t.quantity * s.ticket_price) AS receita FROM shows s JOIN tickets t ON t.show_id = s.id GROUP BY s.id ORDER BY receita DESC, s.id;
+
+- slug: valor-do-estoque
+  title: Quanto vale o estoque?
+  difficulty: facil
+  in: [aggregate-queries/SUM]
+  statement: |
+    Retorne uma linha com o valor total do estoque, que é a soma de `price` vezes `stock` em todos os produtos de `merch`, arredondado para 2 casas.
+  ordered: false
+  solution: |
+    SELECT ROUND(SUM(price * stock), 2) AS valor
+    FROM merch;
+  hints:
+    - Sem GROUP BY, a agregação considera a tabela inteira.
+  explanation: |
+    Sem GROUP BY, toda a tabela forma um único grupo. Por isso, o resultado tem exatamente uma linha.
+  traps:
+    - reason: Soma preços, sem o estoque
+      sql: SELECT ROUND(SUM(price), 2) FROM merch;
+    - reason: Multiplica duas somas
+      sql: SELECT ROUND(SUM(price) * SUM(stock), 2) FROM merch;
+
+- slug: compradores-distintos
+  title: Quantas pessoas compraram?
+  difficulty: facil
+  in: [aggregate-queries/COUNT]
+  statement: |
+    Conte quantos compradores diferentes têm pedido com `status` igual a `pago`. Retorne uma linha com uma coluna.
+
+    Nestes dados, cada nome em `buyer` identifica uma pessoa.
+  ordered: false
+  must_use: [DISTINCT]
+  solution: |
+    SELECT COUNT(DISTINCT buyer) AS pessoas
+    FROM tickets
+    WHERE status = 'pago';
+  hints:
+    - Uma mesma pessoa pode ter mais de um pedido em outros dados.
+  explanation: |
+    COUNT(DISTINCT coluna) conta valores únicos e ignora nulos. É o jeito de responder perguntas com "quantos diferentes".
+  traps:
+    - reason: Conta pedidos, sem DISTINCT
+      sql: SELECT COUNT(buyer) FROM tickets WHERE status = 'pago';
+    - reason: Inclui todos os status
+      sql: SELECT COUNT(DISTINCT buyer) FROM tickets;
+
+- slug: entradas-por-portao
+  title: Movimento por portão
+  difficulty: facil
+  in: [aggregate-queries/COUNT]
+  statement: |
+    Conte as entradas em `checkins` por `gate`. Ordene pela quantidade decrescente e depois pelo nome do portão.
+  ordered: true
+  solution: |
+    SELECT gate, COUNT(*) AS total
+    FROM checkins
+    GROUP BY gate
+    ORDER BY total DESC, gate;
+  hints:
+    - O apelido da contagem pode ser usado no ORDER BY.
+  explanation: |
+    Ordenar pela contagem é o formato clássico de ranking. O desempate pelo nome mantém a saída estável.
+  traps:
+    - reason: Ordem crescente
+      sql: SELECT gate, COUNT(*) AS total FROM checkins GROUP BY gate ORDER BY total, gate;
+    - reason: Sem desempate correto
+      sql: SELECT gate, COUNT(*) AS total FROM checkins GROUP BY gate ORDER BY gate;
+
+- slug: capacidade-media
+  title: Tamanho médio das casas
+  difficulty: facil
+  in: [aggregate-queries/AVG]
+  statement: |
+    Retorne a capacidade média das casas com capacidade até 5000 pessoas, arredondada para 2 casas.
+  ordered: false
+  solution: |
+    SELECT ROUND(AVG(capacity), 2) AS media
+    FROM venues
+    WHERE capacity <= 5000;
+  hints:
+    - O filtro roda antes da média.
+  explanation: |
+    WHERE decide quais linhas entram na conta. Como a condição é sobre a linha, e não sobre o resultado, ela não precisa de HAVING.
+  traps:
+    - reason: Sem o filtro
+      sql: SELECT ROUND(AVG(capacity), 2) FROM venues;
+    - reason: Exclui exatamente 5000 e soma
+      sql: SELECT ROUND(SUM(capacity), 2) FROM venues WHERE capacity <= 5000;
+
+- slug: media-ignora-nulos
+  title: A média que ignora nulos
+  difficulty: medio
+  in: [aggregate-queries/AVG]
+  statement: |
+    Retorne, nessa ordem, a média de `disbanded_year` considerando só quem tem valor, e a quantidade de bandas que entraram nessa média. Arredonde a média para 2 casas.
+  ordered: false
+  solution: |
+    SELECT ROUND(AVG(disbanded_year), 2) AS media, COUNT(disbanded_year) AS bandas
+    FROM bands;
+  hints:
+    - COUNT(*) conta todas as linhas. Qual COUNT combina com AVG aqui?
+  explanation: |
+    AVG soma os valores presentes e divide por quantos existem, ignorando NULL. Para contar NULL como zero, seria preciso `AVG(COALESCE(coluna, 0))`.
+  traps:
+    - reason: Conta todas as bandas
+      sql: SELECT ROUND(AVG(disbanded_year), 2), COUNT(*) FROM bands;
+    - reason: Trata NULL como zero
+      sql: SELECT ROUND(AVG(COALESCE(disbanded_year, 0)), 2), COUNT(disbanded_year) FROM bands;
+
+- slug: primeiro-e-ultimo-show
+  title: Primeiro e último show
+  difficulty: facil
+  in: [aggregate-queries/MIN, aggregate-queries/MAX]
+  statement: |
+    Para cada `band_id` com show, retorne o id, a data do primeiro show e a do último. Ordene por `band_id`.
+  ordered: true
+  solution: |
+    SELECT band_id, MIN(show_date) AS primeiro, MAX(show_date) AS ultimo
+    FROM shows
+    GROUP BY band_id
+    ORDER BY band_id;
+  hints:
+    - MIN e MAX funcionam em texto, e o formato de data aqui ordena corretamente.
+  explanation: |
+    MIN e MAX usam a ordem do tipo. Em datas AAAA-MM-DD, a ordem de texto coincide com a cronológica.
+  traps:
+    - reason: Datas invertidas
+      sql: SELECT band_id, MAX(show_date), MIN(show_date) FROM shows GROUP BY band_id ORDER BY band_id;
+    - reason: Sem GROUP BY
+      sql: SELECT band_id, MIN(show_date), MAX(show_date) FROM shows ORDER BY band_id;
+
+- slug: mais-barato-disponivel
+  title: O mais barato com estoque
+  difficulty: medio
+  in: [aggregate-queries/MIN]
+  statement: |
+    Retorne o menor `price` entre os produtos com estoque maior que zero.
+  ordered: false
+  solution: |
+    SELECT MIN(price) AS menor
+    FROM merch
+    WHERE stock > 0;
+  hints:
+    - Ordem das etapas, primeiro filtrar e depois agregar.
+  explanation: |
+    Em consultas com agregação, WHERE vem antes. Filtrar depois exigiria HAVING, que olha para o grupo e não para o produto.
+  traps:
+    - reason: Inclui esgotados
+      sql: SELECT MIN(price) FROM merch;
+    - reason: O maior preço
+      sql: SELECT MAX(price) FROM merch WHERE stock > 0;
+
+- slug: casa-mais-lotada
+  title: A maior casa de cada cidade
+  difficulty: medio
+  in: [aggregate-queries/MAX]
+  statement: |
+    Para cada `city`, retorne a maior `capacity`. Ordene pela capacidade decrescente e depois pela cidade.
+  ordered: true
+  solution: |
+    SELECT city, MAX(capacity) AS maior
+    FROM venues
+    GROUP BY city
+    ORDER BY maior DESC, city;
+  hints:
+    - Cada cidade forma um grupo.
+  explanation: |
+    Se você também precisasse do nome da casa, MAX sozinho não bastaria, porque a coluna extra pode não vir da linha com o valor máximo.
+  traps:
+    - reason: A menor capacidade
+      sql: SELECT city, MIN(capacity) AS maior FROM venues GROUP BY city ORDER BY maior DESC, city;
+    - reason: Ordem crescente
+      sql: SELECT city, MAX(capacity) AS maior FROM venues GROUP BY city ORDER BY maior, city;
+
+- slug: receita-por-genero
+  title: Qual gênero fatura mais?
+  difficulty: dificil
+  in: [aggregate-queries/GROUP BY, aggregate-queries/SUM]
+  statement: |
+    Para cada `genre` com alguma venda paga, retorne o gênero e a receita, que é a soma de `quantity` vezes `ticket_price`. Ordene pela receita decrescente e depois pelo gênero.
+  ordered: true
+  solution: |
+    SELECT b.genre, SUM(t.quantity * s.ticket_price) AS receita
+    FROM tickets t
+    JOIN shows s ON s.id = t.show_id
+    JOIN bands b ON b.id = s.band_id
+    WHERE t.status = 'pago'
+    GROUP BY b.genre
+    ORDER BY receita DESC, b.genre;
+  hints:
+    - São três tabelas, do pedido até o gênero da banda.
+  explanation: |
+    O agrupamento pode usar colunas de qualquer tabela do JOIN. O importante é confirmar que nenhum JOIN duplica linhas, o que inflaria a soma.
+  traps:
+    - reason: Agrupa por banda
+      sql: SELECT b.name, SUM(t.quantity * s.ticket_price) AS receita FROM tickets t JOIN shows s ON s.id = t.show_id JOIN bands b ON b.id = s.band_id WHERE t.status = 'pago' GROUP BY b.name ORDER BY receita DESC, b.name;
+    - reason: Inclui pedidos não pagos
+      sql: SELECT b.genre, SUM(t.quantity * s.ticket_price) AS receita FROM tickets t JOIN shows s ON s.id = t.show_id JOIN bands b ON b.id = s.band_id GROUP BY b.genre ORDER BY receita DESC, b.genre;
+
+- slug: shows-com-lotacao
+  title: Shows caros que venderam
+  difficulty: dificil
+  in: [aggregate-queries/HAVING]
+  statement: |
+    Liste o `id` do show e os ingressos pagos dos shows em que os ingressos pagos passam de 1 e o preço é maior que 100. Ordene por `id`.
+  ordered: true
+  solution: |
+    SELECT s.id, SUM(t.quantity) AS vendidos
+    FROM shows s
+    JOIN tickets t ON t.show_id = s.id
+    WHERE t.status = 'pago' AND s.ticket_price > 100
+    GROUP BY s.id
+    HAVING SUM(t.quantity) > 1
+    ORDER BY s.id;
+  hints:
+    - Preço é uma condição da linha. Total vendido é uma condição do grupo.
+  explanation: |
+    Coloque no WHERE tudo que puder ser decidido linha a linha. O banco descarta linhas antes de agrupar e faz menos trabalho.
+  traps:
+    - reason: Sem o filtro de preço
+      sql: SELECT s.id, SUM(t.quantity) AS vendidos FROM shows s JOIN tickets t ON t.show_id = s.id WHERE t.status = 'pago' GROUP BY s.id HAVING SUM(t.quantity) > 1 ORDER BY s.id;
+    - reason: Sem o filtro de total
+      sql: SELECT s.id, SUM(t.quantity) AS vendidos FROM shows s JOIN tickets t ON t.show_id = s.id WHERE t.status = 'pago' AND s.ticket_price > 100 GROUP BY s.id ORDER BY s.id;
+
+- slug: chave-composta
+  title: Uma música por posição
+  difficulty: medio
+  in: [data-constraints/Primary Key]
+  statement: |
+    Crie `setlist_items` com `show_id` (inteiro), `position` (inteiro) e `song` (texto obrigatório). A chave primária é a combinação de `show_id` e `position`, então um mesmo show não pode repetir uma posição.
+  ordered: true
+  check: SELECT name, pk FROM pragma_table_info('setlist_items') ORDER BY cid;
+  accepts:
+    - INSERT INTO setlist_items VALUES (1, 1, 'Abertura');
+    - INSERT INTO setlist_items VALUES (1, 2, 'Segunda');
+    - INSERT INTO setlist_items VALUES (2, 1, 'Outra');
+  rejects:
+    - INSERT INTO setlist_items VALUES (1, 1, 'Repetida');
+  solution: |
+    CREATE TABLE setlist_items (
+      show_id INTEGER,
+      position INTEGER,
+      song TEXT NOT NULL,
+      PRIMARY KEY (show_id, position)
+    );
+  hints:
+    - Uma chave composta é declarada no fim da tabela.
+  explanation: |
+    Uma chave composta vale para a combinação de colunas, não para cada uma isolada. Ela é comum em tabelas de ligação.
+  traps:
+    - reason: Só show_id como chave
+      sql: CREATE TABLE setlist_items (show_id INTEGER PRIMARY KEY, position INTEGER, song TEXT NOT NULL);
+    - reason: Sem chave
+      sql: CREATE TABLE setlist_items (show_id INTEGER, position INTEGER, song TEXT NOT NULL);
+
+- slug: chave-artificial
+  title: Chave natural ou artificial?
+  difficulty: medio
+  in: [data-constraints/Primary Key]
+  statement: |
+    Para `press_contacts`, alguém propõe usar `email` como chave primária. Qual é a melhor objeção?
+  options:
+    - text: E-mails mudam, e toda tabela que aponta para o contato precisaria mudar junto
+      why: Certo. Uma chave deve ser estável, e e-mail pode mudar quando a pessoa troca de emprego.
+    - text: E-mails nunca são únicos
+      why: Normalmente são. O problema aqui é estabilidade, e a coluna pode ter UNIQUE à parte.
+    - text: Chave primária não pode ser texto
+      why: Pode, embora costume ser menos eficiente.
+    - text: E-mail não permite consultas por igualdade
+      why: Permite normalmente.
+  answer: 0
+  hints: []
+  explanation: |
+    Um padrão comum é usar um id artificial como chave e manter UNIQUE no e-mail. Assim, a regra continua valendo, e as referências não dependem dele.
+  traps: []
+
+- slug: apagar-em-cascata
+  title: Apagar o show e suas músicas
+  difficulty: dificil
+  in: [data-constraints/Foreign Key]
+  statement: |
+    Crie `setlists` com `id` (inteiro, chave primária), `show_id` (inteiro obrigatório, referência a `shows`) e `song` (texto obrigatório). Ao apagar um show, suas músicas devem ser apagadas automaticamente.
+  ordered: true
+  check: SELECT "table", "from", on_delete FROM pragma_foreign_key_list('setlists');
+  accepts:
+    - INSERT INTO setlists (show_id, song) VALUES ((SELECT MAX(id) FROM shows), 'Final');
+  rejects:
+    - INSERT INTO setlists (show_id, song) VALUES (999999, 'Fantasma');
+  solution: |
+    CREATE TABLE setlists (
+      id INTEGER PRIMARY KEY,
+      show_id INTEGER NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
+      song TEXT NOT NULL
+    );
+  hints:
+    - A chave estrangeira aceita uma ação para o que acontece em um DELETE.
+  explanation: |
+    ON DELETE CASCADE é prático quando o filho não faz sentido sem o pai. Use com cuidado, porque um único DELETE pode remover muitas linhas em várias tabelas.
+  traps:
+    - reason: Sem a ação de cascata
+      sql: CREATE TABLE setlists (id INTEGER PRIMARY KEY, show_id INTEGER NOT NULL REFERENCES shows(id), song TEXT NOT NULL);
+    - reason: SET NULL em vez de cascata
+      sql: CREATE TABLE setlists (id INTEGER PRIMARY KEY, show_id INTEGER REFERENCES shows(id) ON DELETE SET NULL, song TEXT NOT NULL);
+
+- slug: ordem-para-apagar
+  title: A ordem de apagar um show
+  difficulty: medio
+  in: [data-constraints/Foreign Key]
+  statement: |
+    O show de maior `ticket_price` foi cancelado. Para simplificar, considere o de menor `id` em caso de empate. Apague o show e tudo que depende dele: as entradas (`checkins`), os pedidos (`tickets`) e o próprio `shows`, nessa ordem.
+  ordered: true
+  check: SELECT (SELECT COUNT(*) FROM shows), (SELECT COUNT(*) FROM tickets), (SELECT COUNT(*) FROM checkins);
+  solution: |
+    DELETE FROM checkins WHERE ticket_id IN (
+      SELECT id FROM tickets WHERE show_id = (
+        SELECT id FROM shows ORDER BY ticket_price DESC, id LIMIT 1
+      )
+    );
+    DELETE FROM tickets WHERE show_id = (
+      SELECT id FROM shows ORDER BY ticket_price DESC, id LIMIT 1
+    );
+    DELETE FROM shows WHERE id = (
+      SELECT id FROM shows ORDER BY ticket_price DESC, id LIMIT 1
+    );
+  hints:
+    - Comece pelas tabelas que dependem das outras.
+    - Calcule o show em uma subconsulta, porque o id pode mudar entre ambientes.
+  explanation: |
+    Com a chave estrangeira, apagar o pai antes dos filhos falha. A ordem segue o caminho das dependências, de baixo para cima.
+  traps:
+    - reason: Apaga o show antes dos pedidos
+      sql: DELETE FROM shows WHERE id = (SELECT id FROM shows ORDER BY ticket_price DESC, id LIMIT 1);
+    - reason: Sobram as entradas
+      sql: DELETE FROM tickets WHERE show_id = (SELECT id FROM shows ORDER BY ticket_price DESC, id LIMIT 1);
+
+- slug: orfaos-sem-chave
+  title: O que a chave estrangeira evita
+  difficulty: facil
+  in: [data-constraints/Foreign Key]
+  statement: |
+    Uma tabela de pedidos não tem chave estrangeira para `shows`, e alguém apaga um show que tinha pedidos. O que acontece?
+  options:
+    - text: Os pedidos ficam apontando para um show que não existe
+      why: Certo. Essas são as linhas órfãs, que a chave estrangeira impede.
+    - text: O banco apaga os pedidos sozinho
+      why: Isso só aconteceria com uma chave estrangeira e ON DELETE CASCADE.
+    - text: O banco recusa apagar o show
+      why: Só com a chave estrangeira ele saberia dessa dependência.
+    - text: O valor de show_id vira NULL automaticamente
+      why: Isso exigiria ON DELETE SET NULL em uma chave estrangeira.
+  answer: 0
+  hints: []
+  explanation: |
+    Sem a chave, o banco não conhece a relação. Linhas órfãs causam JOINs que somem com dados e relatórios que não fecham.
+  traps: []
+
+- slug: produto-unico-por-banda
+  title: Produto único por banda
+  difficulty: medio
+  in: [data-constraints/Unique]
+  statement: |
+    Crie `catalog` com `id` (inteiro, chave primária), `band_id` (inteiro obrigatório) e `item` (texto obrigatório). Uma banda não pode repetir o nome de um produto, mas bandas diferentes podem ter produtos com o mesmo nome.
+  ordered: true
+  check: SELECT name FROM pragma_table_info('catalog') ORDER BY cid;
+  accepts:
+    - INSERT INTO catalog (band_id, item) VALUES (1, 'Camiseta');
+    - INSERT INTO catalog (band_id, item) VALUES (2, 'Camiseta');
+    - INSERT INTO catalog (band_id, item) VALUES (1, 'Boné');
+  rejects:
+    - INSERT INTO catalog (band_id, item) VALUES (1, 'Camiseta');
+  solution: |
+    CREATE TABLE catalog (
+      id INTEGER PRIMARY KEY,
+      band_id INTEGER NOT NULL,
+      item TEXT NOT NULL,
+      UNIQUE (band_id, item)
+    );
+  hints:
+    - UNIQUE pode valer para a combinação de colunas.
+  explanation: |
+    UNIQUE em uma coluna proíbe valores repetidos nela. Na forma composta, só a combinação completa não pode se repetir.
+  traps:
+    - reason: UNIQUE só em item
+      sql: CREATE TABLE catalog (id INTEGER PRIMARY KEY, band_id INTEGER NOT NULL, item TEXT NOT NULL UNIQUE);
+    - reason: Sem UNIQUE
+      sql: CREATE TABLE catalog (id INTEGER PRIMARY KEY, band_id INTEGER NOT NULL, item TEXT NOT NULL);
+
+- slug: unique-e-nulos
+  title: UNIQUE com nulos
+  difficulty: medio
+  in: [data-constraints/Unique]
+  statement: |
+    Uma coluna `email` tem `UNIQUE`, mas aceita `NULL`. Duas linhas podem ter `email` nulo?
+  options:
+    - text: Sim, na maioria dos bancos, porque NULL não é considerado igual a NULL
+      why: Certo. SQLite, PostgreSQL e MySQL permitem. O SQL Server é uma exceção conhecida.
+    - text: Não, porque UNIQUE proíbe qualquer repetição
+      why: A comparação entre nulos não resulta em verdadeiro, então não conta como repetição.
+    - text: Não, porque UNIQUE implica NOT NULL
+      why: Quem implica NOT NULL é PRIMARY KEY.
+    - text: Sim, mas só a primeira linha guarda o valor
+      why: As duas linhas ficam com NULL normalmente.
+  answer: 0
+  hints: []
+  explanation: |
+    Quando a coluna é obrigatória e única, declare os dois: `NOT NULL UNIQUE`.
+  traps: []
+
+- slug: obrigatorio-com-padrao
+  title: Obrigatório com valor padrão
+  difficulty: facil
+  in: [data-constraints/NOT NULL]
+  statement: |
+    Crie `gates` com `id` (inteiro, chave primária), `name` (texto obrigatório) e `open` (inteiro obrigatório, padrão 1).
+
+    Inserir só o nome deve funcionar. Inserir nome nulo deve falhar.
+  ordered: true
+  check: SELECT name, "notnull", dflt_value FROM pragma_table_info('gates') ORDER BY cid;
+  accepts:
+    - INSERT INTO gates (name) VALUES ('Norte');
+  rejects:
+    - INSERT INTO gates (name) VALUES (NULL);
+    - INSERT INTO gates (name, open) VALUES ('Sul', NULL);
+  solution: |
+    CREATE TABLE gates (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      open INTEGER NOT NULL DEFAULT 1
+    );
+  hints:
+    - DEFAULT vale quando a coluna é omitida no INSERT.
+  explanation: |
+    DEFAULT preenche quando o INSERT omite a coluna. Se alguém mandar NULL de propósito, DEFAULT não entra, e quem recusa é NOT NULL.
+  traps:
+    - reason: Sem NOT NULL em open
+      sql: CREATE TABLE gates (id INTEGER PRIMARY KEY, name TEXT NOT NULL, open INTEGER DEFAULT 1);
+    - reason: Sem padrão
+      sql: CREATE TABLE gates (id INTEGER PRIMARY KEY, name TEXT NOT NULL, open INTEGER NOT NULL);
+
+- slug: status-valido
+  title: Só status válidos
+  difficulty: medio
+  in: [data-constraints/CHECK]
+  statement: |
+    Crie `orders` com `id` (inteiro, chave primária) e `status` (texto obrigatório). O banco deve aceitar em `status` apenas `pago`, `reservado` e `cancelado`.
+  ordered: true
+  check: SELECT name FROM pragma_table_info('orders') ORDER BY cid;
+  accepts:
+    - INSERT INTO orders (status) VALUES ('pago');
+    - INSERT INTO orders (status) VALUES ('reservado');
+    - INSERT INTO orders (status) VALUES ('cancelado');
+  rejects:
+    - INSERT INTO orders (status) VALUES ('Pago');
+    - INSERT INTO orders (status) VALUES ('gratis');
+    - INSERT INTO orders (status) VALUES (NULL);
+  solution: |
+    CREATE TABLE orders (
+      id INTEGER PRIMARY KEY,
+      status TEXT NOT NULL CHECK (status IN ('pago', 'reservado', 'cancelado'))
+    );
+  hints:
+    - CHECK aceita qualquer expressão, inclusive IN.
+  explanation: |
+    CHECK com IN funciona como uma lista fixa de valores. Quando a lista muda com frequência, uma tabela própria com chave estrangeira costuma ser melhor.
+  traps:
+    - reason: Falta um status
+      sql: CREATE TABLE orders (id INTEGER PRIMARY KEY, status TEXT NOT NULL CHECK (status IN ('pago', 'reservado')));
+    - reason: Sem NOT NULL
+      sql: CREATE TABLE orders (id INTEGER PRIMARY KEY, status TEXT CHECK (status IN ('pago', 'reservado', 'cancelado')));
+
+- slug: datas-coerentes
+  title: Fim depois do início
+  difficulty: dificil
+  in: [data-constraints/CHECK]
+  statement: |
+    Crie `tours` com `id` (inteiro, chave primária), `starts_on` (texto obrigatório) e `ends_on` (texto obrigatório). O banco deve recusar turnês que terminam antes de começar. Terminar no mesmo dia é permitido.
+  ordered: true
+  check: SELECT name FROM pragma_table_info('tours') ORDER BY cid;
+  accepts:
+    - INSERT INTO tours (starts_on, ends_on) VALUES ('2026-03-01', '2026-03-10');
+    - INSERT INTO tours (starts_on, ends_on) VALUES ('2026-03-01', '2026-03-01');
+  rejects:
+    - INSERT INTO tours (starts_on, ends_on) VALUES ('2026-03-10', '2026-03-01');
+    - INSERT INTO tours (starts_on, ends_on) VALUES ('2026-03-10', NULL);
+  solution: |
+    CREATE TABLE tours (
+      id INTEGER PRIMARY KEY,
+      starts_on TEXT NOT NULL,
+      ends_on TEXT NOT NULL,
+      CHECK (ends_on >= starts_on)
+    );
+  hints:
+    - CHECK pode comparar colunas da mesma linha.
+  explanation: |
+    Um CHECK de tabela pode envolver várias colunas, mas só da mesma linha. Regras entre linhas diferentes exigem trigger ou outra solução.
+  traps:
+    - reason: Recusa terminar no mesmo dia
+      sql: CREATE TABLE tours (id INTEGER PRIMARY KEY, starts_on TEXT NOT NULL, ends_on TEXT NOT NULL, CHECK (ends_on > starts_on));
+    - reason: Sem a regra
+      sql: CREATE TABLE tours (id INTEGER PRIMARY KEY, starts_on TEXT NOT NULL, ends_on TEXT NOT NULL);

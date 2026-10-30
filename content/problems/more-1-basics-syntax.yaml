@@ -1,0 +1,499 @@
+- slug: chave-em-vez-de-nome
+  title: Por que não usar o nome como chave?
+  difficulty: facil
+  in: [learn-the-basics/What are Relational Databases?]
+  statement: |
+    Alguém sugere usar `name` como chave primária de `bands`, sem coluna `id`. Qual é o principal problema?
+  options:
+    - text: Nomes mudam e podem se repetir, e a chave precisa ser estável e única
+      why: Certo. Se a chave mudar, todas as tabelas que apontam para ela precisam mudar junto.
+    - text: Bancos relacionais não aceitam texto em chave primária
+      why: Aceitam. O problema é o significado do dado, não o tipo.
+    - text: A tabela deixaria de ser relacional
+      why: Continuaria relacional. Só teria uma chave ruim.
+    - text: Não seria possível usar WHERE no nome
+      why: Qualquer coluna pode ser filtrada, seja chave ou não.
+  answer: 0
+  hints: []
+  explanation: |
+    Uma boa chave é única, estável e curta. Por isso, é comum usar um identificador sem significado de negócio.
+  traps: []
+
+- slug: muitos-para-muitos
+  title: Uma banda, vários festivais
+  difficulty: medio
+  in: [learn-the-basics/What are Relational Databases?]
+  statement: |
+    Uma banda pode tocar em vários festivais, e um festival recebe várias bandas. Como modelar isso em um banco relacional?
+  options:
+    - text: Com uma terceira tabela, que guarda pares de band_id e festival_id
+      why: Certo. A relação muitos-para-muitos vira duas relações um-para-muitos com a tabela de ligação.
+    - text: Com uma coluna festival_id em bands
+      why: Assim cada banda só poderia estar em um festival.
+    - text: Com uma coluna de texto em bands, com ids separados por vírgula
+      why: Isso impede chaves estrangeiras e JOINs eficientes, e torna atualizações frágeis.
+    - text: Com uma coluna band_id em festivals
+      why: Assim cada festival só poderia ter uma banda.
+  answer: 0
+  hints: []
+  explanation: |
+    A tabela `shows` já faz esse papel entre bandas e casas. Ela liga as duas e ainda guarda dados da relação, como data e preço.
+  traps: []
+
+- slug: dado-duplicado
+  title: A cidade copiada em cada show
+  difficulty: medio
+  in: [learn-the-basics/What are Relational Databases?]
+  statement: |
+    Para evitar um JOIN, alguém quer copiar `city` de `venues` para cada linha de `shows`. Qual é o risco principal?
+  options:
+    - text: A mesma informação pode ficar diferente em lugares distintos, porque toda mudança exige atualizar várias linhas
+      why: Certo. Esse é o problema que a normalização evita.
+    - text: Não é possível criar duas colunas com o mesmo nome no banco
+      why: É possível em tabelas diferentes. O nome não é o problema.
+    - text: Consultas em shows ficariam impossíveis
+      why: Continuariam possíveis. O que piora é a confiabilidade do dado.
+    - text: O banco apagaria a coluna de venues automaticamente
+      why: O banco não faz nada disso.
+  answer: 0
+  hints: []
+  explanation: |
+    Normalizar é guardar cada fato em um só lugar. Duplicar pode ser uma escolha válida para performance, mas deve ser consciente, porque alguém precisa manter as cópias iguais.
+  traps: []
+
+- slug: crescer-para-cima-ou-para-os-lados
+  title: O banco não aguenta mais
+  difficulty: medio
+  in: [learn-the-basics/RDBMS Benefits and Limitations]
+  statement: |
+    O site do festival lê muito mais do que grava, e o banco relacional está no limite durante as vendas. Qual é o primeiro caminho a avaliar?
+  options:
+    - text: Criar réplicas de leitura e direcionar as consultas para elas
+      why: Certo. Réplicas distribuem as leituras sem mudar o modelo de dados.
+    - text: Trocar de banco de dados imediatamente
+      why: Migrar é caro e pode nem ser necessário. Comece pelas opções menos arriscadas.
+    - text: Remover as chaves estrangeiras de todas as tabelas
+      why: Isso tira garantias e ajuda pouco em uma carga de leitura.
+    - text: Desligar as transações
+      why: Perder garantias não resolve um gargalo de leitura.
+  answer: 0
+  hints: []
+  explanation: |
+    Bancos relacionais escalam bem leituras com réplicas e verticalmente com máquinas maiores. Distribuir escritas é a parte difícil, e costuma exigir particionamento.
+  traps: []
+
+- slug: esquema-rigido
+  title: O preço do esquema definido
+  difficulty: facil
+  in: [learn-the-basics/RDBMS Benefits and Limitations]
+  statement: |
+    Qual afirmação descreve melhor o esquema definido de um banco relacional?
+  options:
+    - text: Ele protege a qualidade dos dados, mas exige planejar mudanças de estrutura
+      why: Certo. A rigidez é uma proteção e também um custo.
+    - text: Ele impede qualquer mudança depois da criação
+      why: ALTER TABLE existe justamente para isso.
+    - text: Ele só serve para deixar as consultas mais rápidas
+      why: O principal ganho é garantir o formato e as regras dos dados.
+    - text: Ele não permite colunas opcionais
+      why: Colunas podem aceitar NULL.
+  answer: 0
+  hints: []
+  explanation: |
+    O esquema funciona como um contrato. Todo sistema que usa o banco sabe o formato esperado, mas uma mudança precisa ser coordenada entre eles.
+  traps: []
+
+- slug: catalogo-variavel
+  title: Cada produto com seus campos
+  difficulty: medio
+  in: [learn-the-basics/SQL vs NoSQL Databases]
+  statement: |
+    A loja vende camisetas com tamanho e cor, vinis com rotação e faixas, e ingressos com setor. Os produtos são lidos inteiros, e os campos mudam com frequência. Que modelo tende a encaixar melhor?
+  options:
+    - text: Documentos, porque cada produto pode ter seus próprios campos
+      why: Certo. Esse é o caso clássico de bancos de documentos, embora colunas JSON em bancos relacionais também resolvam.
+    - text: Grafos, porque produtos têm atributos
+      why: Grafos servem para percorrer relações, não para atributos variáveis.
+    - text: Chave-valor, porque permite buscar por qualquer campo
+      why: Chave-valor busca pela chave. Consultar por campo é justamente seu limite.
+    - text: Uma tabela relacional com uma coluna para cada campo possível
+      why: Funciona, mas gera muitas colunas nulas e exige alterar a estrutura a cada produto novo.
+  answer: 0
+  hints: []
+  explanation: |
+    Atributos muito variáveis são o ponto forte dos documentos. Vale lembrar que PostgreSQL e outros bancos relacionais oferecem colunas JSON, e isso nem sempre exige outro banco.
+  traps: []
+
+- slug: consistencia-eventual
+  title: Curtidas e pagamentos
+  difficulty: dificil
+  in: [learn-the-basics/SQL vs NoSQL Databases]
+  statement: |
+    Um banco distribuído oferece consistência eventual, em que réplicas podem ficar momentaneamente desatualizadas. Em qual destes casos isso é aceitável?
+  options:
+    - text: No contador de curtidas de uma foto da banda
+      why: Certo. Um número levemente atrasado não causa dano.
+    - text: Na venda do último ingresso de um setor
+      why: Duas réplicas podem vender o mesmo ingresso.
+    - text: No saldo de um cartão pré-pago do festival
+      why: Uma leitura antiga permitiria gastar duas vezes o mesmo saldo.
+    - text: No registro de um estorno financeiro
+      why: Dinheiro exige que todos vejam o mesmo valor confirmado.
+  answer: 0
+  hints: []
+  explanation: |
+    A pergunta prática é qual dano uma leitura desatualizada pode causar. Muitos sistemas usam consistência forte para dinheiro e eventual para métricas e feeds.
+  traps: []
+
+- slug: maiusculas-no-sql
+  title: SELECT ou select?
+  difficulty: facil
+  in: [basic-sql-syntax/SQL Keywords]
+  statement: |
+    Três colegas escrevem `SELECT`, `select` e `Select`. O que acontece no banco?
+  options:
+    - text: Os três funcionam, porque palavras-chave não diferenciam maiúsculas
+      why: Certo. Escrever em maiúsculas é uma convenção de leitura.
+    - text: Só SELECT funciona
+      why: A linguagem não exige maiúsculas nas palavras-chave.
+    - text: Cada forma gera um plano de execução diferente
+      why: A consulta é interpretada da mesma forma.
+    - text: A forma minúscula só retorna dados em minúsculas
+      why: A escrita da palavra-chave não afeta os dados.
+  answer: 0
+  hints: []
+  explanation: |
+    Palavras-chave não diferenciam maiúsculas. Valores de texto, sim, na maioria das comparações. Nomes de colunas variam conforme o banco.
+  traps: []
+
+- slug: coluna-chamada-order
+  title: Uma coluna chamada order
+  difficulty: medio
+  in: [basic-sql-syntax/SQL Keywords]
+  statement: |
+    Uma tabela tem uma coluna chamada `order`, e esta consulta dá erro: `SELECT order FROM setlists`. Por quê?
+  options:
+    - text: order é uma palavra reservada, e precisa de aspas duplas para ser usada como nome
+      why: Certo. O interpretador entende order como início de ORDER BY.
+    - text: Colunas não podem ter mais de quatro letras
+      why: Não existe esse limite.
+    - text: SELECT não funciona sem WHERE
+      why: WHERE é opcional.
+    - text: Nomes de coluna não podem estar em inglês
+      why: A língua não importa. O problema é coincidir com uma palavra da linguagem.
+  answer: 0
+  hints: []
+  explanation: |
+    Dá para escrever `"order"`, mas o melhor é evitar palavras reservadas ao nomear colunas, porque toda consulta futura vai precisar das aspas.
+  traps: []
+
+- slug: dinheiro-em-real
+  title: Os centavos que somem
+  difficulty: medio
+  in: [basic-sql-syntax/Data Types]
+  statement: |
+    O sistema guarda preços como número de ponto flutuante, e a soma de 0,10 com 0,20 não dá exatamente 0,30. Qual é a solução mais adequada?
+  options:
+    - text: Usar NUMERIC ou guardar centavos em uma coluna inteira
+      why: Certo. Esses tipos representam valores exatos.
+    - text: Guardar o preço como texto
+      why: Texto não permite somar nem compara números corretamente.
+    - text: Arredondar para 10 casas decimais em cada consulta
+      why: Esconde o sintoma, mas os erros continuam se acumulando.
+    - text: Usar um tipo de data
+      why: Não tem relação com valores monetários.
+  answer: 0
+  hints: []
+  explanation: |
+    Ponto flutuante representa a maioria dos decimais de forma aproximada. Isso serve para medidas científicas, mas não para dinheiro.
+  traps: []
+
+- slug: data-em-texto-brasileiro
+  title: A data em formato errado
+  difficulty: medio
+  in: [basic-sql-syntax/Data Types]
+  statement: |
+    Uma coluna de texto guarda datas como `31/01/2026` e `01/02/2026`. Ao usar `ORDER BY`, 31 de janeiro aparece depois de 1º de fevereiro. Por quê?
+  options:
+    - text: Texto é comparado caractere a caractere, e 31 vem depois de 01
+      why: Certo. O formato AAAA-MM-DD resolve isso, porque a parte mais significativa vem primeiro.
+    - text: ORDER BY só funciona com números
+      why: ORDER BY funciona com texto, mas em ordem alfabética.
+    - text: Janeiro é tratado como depois de fevereiro no banco
+      why: O banco nem sabe que aquilo é uma data.
+    - text: A ordenação é aleatória em colunas de texto
+      why: É determinística, só não é cronológica.
+  answer: 0
+  hints: []
+  explanation: |
+    Use um tipo de data real quando o banco oferecer, ou AAAA-MM-DD no SQLite. Assim, a ordem de texto coincide com a cronológica.
+  traps: []
+
+- slug: ano-como-texto
+  title: O ano como texto
+  difficulty: facil
+  in: [basic-sql-syntax/Data Types]
+  statement: |
+    Um sistema legado precisa receber o ano de formação como texto. Retorne `name` e `formed_year` convertido para texto usando `CAST`, em ordem de `name`.
+  ordered: true
+  must_use: [CAST]
+  solution: |
+    SELECT name, CAST(formed_year AS TEXT) AS ano
+    FROM bands
+    ORDER BY name;
+  hints:
+    - A sintaxe é CAST(valor AS TIPO).
+  explanation: |
+    CAST converte um valor de um tipo para outro. O corretor diferencia o número 1994 do texto '1994', e os bancos também podem diferenciar em comparações.
+  traps:
+    - reason: Continua sendo número
+      sql: SELECT name, CAST(formed_year AS INTEGER) FROM bands ORDER BY name;
+    - reason: Sem ordem
+      sql: SELECT name, CAST(formed_year AS TEXT) FROM bands;
+
+- slug: tudo-de-camiseta
+  title: Só as camisetas
+  difficulty: facil
+  in: [basic-sql-syntax/Operators]
+  statement: |
+    Liste `item` e `price` dos produtos de `merch` cujo nome começa com `Camiseta`, ordenados por `item`.
+  ordered: true
+  solution: |
+    SELECT item, price
+    FROM merch
+    WHERE item LIKE 'Camiseta%'
+    ORDER BY item;
+  hints:
+    - Em LIKE, o sinal de porcentagem representa qualquer sequência de caracteres.
+  explanation: |
+    `%` casa com qualquer sequência, e `_` com um único caractere. A posição do `%` define se o texto começa, termina ou contém o padrão.
+  traps:
+    - reason: Padrão para terminar com Camiseta
+      sql: SELECT item, price FROM merch WHERE item LIKE '%Camiseta' ORDER BY item;
+    - reason: Igualdade não aceita curinga
+      sql: SELECT item, price FROM merch WHERE item = 'Camiseta%' ORDER BY item;
+
+- slug: tudo-menos-metal-zine
+  title: Quem não é da Metal Zine
+  difficulty: medio
+  in: [basic-sql-syntax/Operators]
+  statement: |
+    Liste `full_name` dos contatos que não são do veículo `Metal Zine`. Quem não tem veículo cadastrado, com `outlet` nulo, também entra. Ordene por `full_name`.
+  ordered: true
+  solution: |
+    SELECT full_name
+    FROM press_contacts
+    WHERE outlet <> 'Metal Zine' OR outlet IS NULL
+    ORDER BY full_name;
+  hints:
+    - Qual é o resultado de NULL <> 'Metal Zine'?
+  explanation: |
+    Comparar NULL com qualquer valor resulta em desconhecido, e o WHERE só mantém o que é verdadeiro. Por isso, os nulos precisam de uma condição própria.
+  traps:
+    - reason: Diferente de não pega NULL
+      sql: SELECT full_name FROM press_contacts WHERE outlet <> 'Metal Zine' ORDER BY full_name;
+    - reason: Inverte a condição
+      sql: SELECT full_name FROM press_contacts WHERE outlet = 'Metal Zine' ORDER BY full_name;
+
+- slug: preco-com-taxa
+  title: Acima de 200 com a taxa
+  difficulty: facil
+  in: [basic-sql-syntax/Operators]
+  statement: |
+    Uma taxa de 10% será somada aos ingressos. Liste `id` e o preço com taxa dos shows em que esse preço total passa de 200. Ordene por `id`.
+  ordered: true
+  solution: |
+    SELECT id, ticket_price * 1.1 AS com_taxa
+    FROM shows
+    WHERE ticket_price * 1.1 > 200
+    ORDER BY id;
+  hints:
+    - O filtro é sobre o preço com taxa, não sobre o preço original.
+  explanation: |
+    Operadores aritméticos podem ser usados no SELECT e no WHERE. O apelido não é visível no WHERE na maioria dos bancos, por isso a expressão se repete.
+  traps:
+    - reason: Filtra pelo preço sem taxa
+      sql: SELECT id, ticket_price * 1.1 FROM shows WHERE ticket_price > 200 ORDER BY id;
+    - reason: Mostra o preço sem taxa
+      sql: SELECT id, ticket_price FROM shows WHERE ticket_price * 1.1 > 200 ORDER BY id;
+
+- slug: fora-da-faixa
+  title: Casas fora da faixa
+  difficulty: facil
+  in: [basic-sql-syntax/Operators]
+  statement: |
+    Liste `name` das casas com capacidade fora da faixa de 1000 a 5000 pessoas, em ordem alfabética.
+  ordered: true
+  solution: |
+    SELECT name
+    FROM venues
+    WHERE capacity NOT BETWEEN 1000 AND 5000
+    ORDER BY name;
+  hints:
+    - NOT inverte o resultado de uma condição.
+  explanation: |
+    `NOT BETWEEN` equivale a `capacity < 1000 OR capacity > 5000`. Usar AND nessa versão resultaria em nenhuma linha.
+  traps:
+    - reason: Dentro da faixa, não fora
+      sql: SELECT name FROM venues WHERE capacity BETWEEN 1000 AND 5000 ORDER BY name;
+    - reason: Nenhum número é as duas coisas ao mesmo tempo
+      sql: SELECT name FROM venues WHERE capacity < 1000 AND capacity > 5000 ORDER BY name;
+
+- slug: idade-das-bandas
+  title: Há quanto tempo na estrada
+  difficulty: facil
+  in: [basic-sql-syntax/SELECT]
+  statement: |
+    Retorne `name` e há quantos anos cada banda existe, considerando 2026. Ordene da mais antiga para a mais nova e, em caso de empate, por `name`.
+  ordered: true
+  solution: |
+    SELECT name, 2026 - formed_year AS idade
+    FROM bands
+    ORDER BY idade DESC, name;
+  hints:
+    - O SELECT pode calcular valores, não só repetir colunas.
+  explanation: |
+    Uma coluna calculada não existe na tabela e só vive no resultado. O apelido pode ser usado no ORDER BY, que é processado depois do SELECT.
+  traps:
+    - reason: Da mais nova para a mais antiga
+      sql: SELECT name, 2026 - formed_year AS idade FROM bands ORDER BY idade, name;
+    - reason: Subtração invertida
+      sql: SELECT name, formed_year - 2026 AS idade FROM bands ORDER BY idade, name;
+
+- slug: tres-mais-caros
+  title: Os três mais caros
+  difficulty: facil
+  in: [basic-sql-syntax/SELECT]
+  statement: |
+    Retorne `id` e `ticket_price` dos 3 shows mais caros. Em caso de empate no preço, vem primeiro o menor `id`.
+  ordered: true
+  solution: |
+    SELECT id, ticket_price
+    FROM shows
+    ORDER BY ticket_price DESC, id
+    LIMIT 3;
+  hints:
+    - LIMIT corta o resultado depois da ordenação.
+  explanation: |
+    Sem ORDER BY, LIMIT traz linhas quaisquer. O desempate importa, porque senão o terceiro lugar pode mudar entre execuções.
+  traps:
+    - reason: Os mais baratos
+      sql: SELECT id, ticket_price FROM shows ORDER BY ticket_price, id LIMIT 3;
+    - reason: Sem limite
+      sql: SELECT id, ticket_price FROM shows ORDER BY ticket_price DESC, id;
+
+- slug: dois-produtos-de-uma-vez
+  title: Dois produtos de uma vez
+  difficulty: facil
+  in: [basic-sql-syntax/INSERT, dml/INSERT]
+  statement: |
+    Com um único `INSERT`, adicione a `merch` dois produtos do festival, com `band_id` nulo:
+
+    `Patch do festival`, preço 15, estoque 100. `Caneca do festival`, preço 30, estoque 50.
+  ordered: true
+  check: SELECT band_id, item, price, stock FROM merch ORDER BY item;
+  solution: |
+    INSERT INTO merch (band_id, item, price, stock)
+    VALUES
+      (NULL, 'Patch do festival', 15, 100),
+      (NULL, 'Caneca do festival', 30, 50);
+  hints:
+    - VALUES aceita várias linhas, separadas por vírgula.
+  explanation: |
+    Um INSERT com várias linhas é atômico e costuma ser mais rápido que vários comandos separados.
+  traps:
+    - reason: Só um produto
+      sql: INSERT INTO merch (band_id, item, price, stock) VALUES (NULL, 'Patch do festival', 15, 100);
+    - reason: Preço e estoque trocados
+      sql: INSERT INTO merch (band_id, item, price, stock) VALUES (NULL, 'Patch do festival', 100, 15), (NULL, 'Caneca do festival', 50, 30);
+
+- slug: camiseta-para-cada-banda
+  title: Uma camiseta para cada banda nacional
+  difficulty: medio
+  in: [dml/INSERT, basic-sql-syntax/INSERT]
+  statement: |
+    Crie em `merch` uma camiseta para cada banda do `Brasil`. O `item` é `Camiseta ` seguido do nome da banda, o preço é 60, e o estoque é 0.
+
+    Use `INSERT` com `SELECT`, porque a lista de bandas pode mudar.
+  ordered: true
+  must_use: [INSERT, SELECT]
+  check: SELECT band_id, item, price, stock FROM merch ORDER BY item;
+  solution: |
+    INSERT INTO merch (band_id, item, price, stock)
+    SELECT id, 'Camiseta ' || name, 60, 0
+    FROM bands
+    WHERE country = 'Brasil';
+  hints:
+    - Em vez de VALUES, um SELECT pode fornecer as linhas a inserir.
+  explanation: |
+    INSERT com SELECT copia ou transforma linhas em um só comando. Valores fixos no SELECT são repetidos em todas as linhas inseridas.
+  traps:
+    - reason: Todas as bandas
+      sql: INSERT INTO merch (band_id, item, price, stock) SELECT id, 'Camiseta ' || name, 60, 0 FROM bands;
+    - reason: Sem o espaço no nome
+      sql: INSERT INTO merch (band_id, item, price, stock) SELECT id, 'Camiseta' || name, 60, 0 FROM bands WHERE country = 'Brasil';
+
+- slug: reajuste-do-segundo-semestre
+  title: Reajuste do segundo semestre
+  difficulty: facil
+  in: [basic-sql-syntax/UPDATE, dml/UPDATE]
+  statement: |
+    Os ingressos de shows a partir de `2026-07-01`, inclusive, ficaram 10% mais caros. Atualize `ticket_price` só nesses shows.
+  ordered: true
+  check: SELECT id, ROUND(ticket_price, 2) FROM shows ORDER BY id;
+  solution: |
+    UPDATE shows
+    SET ticket_price = ticket_price * 1.1
+    WHERE show_date >= '2026-07-01';
+  hints:
+    - SET pode usar o valor atual da própria coluna.
+  explanation: |
+    O lado direito do SET lê o valor anterior da linha. Isso evita calcular fora do banco e reduz o risco de sobrescrever uma mudança de outra pessoa.
+  traps:
+    - reason: Sem WHERE
+      sql: UPDATE shows SET ticket_price = ticket_price * 1.1;
+    - reason: Reduz em vez de aumentar
+      sql: UPDATE shows SET ticket_price = ticket_price * 0.9 WHERE show_date >= '2026-07-01';
+
+- slug: banda-reativada
+  title: Bandas brasileiras de volta
+  difficulty: facil
+  in: [basic-sql-syntax/UPDATE]
+  statement: |
+    Todas as bandas do `Brasil` anunciaram a volta. Limpe o `disbanded_year` delas, deixando-o nulo, e não altere as outras.
+  ordered: true
+  check: SELECT id, disbanded_year FROM bands ORDER BY id;
+  solution: |
+    UPDATE bands
+    SET disbanded_year = NULL
+    WHERE country = 'Brasil';
+  hints:
+    - No SET, o sinal de igual atribui. Nesse caso, `= NULL` é o certo.
+  explanation: |
+    Em SET, `= NULL` é uma atribuição e funciona. Em WHERE, é uma comparação e nunca é verdadeira, por isso lá se usa IS NULL.
+  traps:
+    - reason: Altera também bandas estrangeiras
+      sql: UPDATE bands SET disbanded_year = NULL;
+    - reason: Só consulta
+      sql: SELECT * FROM bands WHERE country = 'Brasil';
+
+- slug: fora-de-estoque-do-festival
+  title: Fora de linha
+  difficulty: facil
+  in: [basic-sql-syntax/DELETE, dml/DELETE]
+  statement: |
+    Apague de `merch` os produtos do próprio festival (com `band_id` nulo) que estão com estoque 0.
+  ordered: true
+  check: SELECT id FROM merch ORDER BY id;
+  solution: |
+    DELETE FROM merch
+    WHERE stock = 0 AND band_id IS NULL;
+  hints:
+    - Duas condições precisam ser verdadeiras ao mesmo tempo.
+  explanation: |
+    Combinar condições com AND reduz o alcance do comando. Antes de apagar, confira as linhas com um SELECT usando o mesmo WHERE.
+  traps:
+    - reason: = NULL nunca é verdadeiro
+      sql: DELETE FROM merch WHERE stock = 0 AND band_id = NULL;
+    - reason: OR apaga demais
+      sql: DELETE FROM merch WHERE stock = 0 OR band_id IS NULL;

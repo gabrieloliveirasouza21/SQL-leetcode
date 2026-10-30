@@ -1,0 +1,81 @@
+- slug: indice-em-chave-estrangeira
+  title: A chave estrangeira sem índice
+  difficulty: medio
+  in: [indexes/Managing Indexes, performance-optimization/Using Indexes]
+  statement: |
+    O JOIN entre `tickets` e `checkins` ficou lento, porque `checkins.ticket_id` não tem índice. O SQLite não cria índice automaticamente em chaves estrangeiras. Crie um índice nessa coluna, com o nome que preferir.
+  ordered: true
+  check: SELECT ii.name FROM sqlite_master m, pragma_index_info(m.name) ii WHERE m.type = 'index' AND m.tbl_name = 'checkins' ORDER BY ii.seqno;
+  solution: |
+    CREATE INDEX idx_checkins_ticket ON checkins (ticket_id);
+  hints:
+    - O índice vai na tabela que aponta, não na apontada.
+  explanation: |
+    A chave primária de `tickets` já tem índice. O lado da chave estrangeira normalmente não tem, e ele também é usado ao apagar um pedido, para conferir dependências.
+  traps:
+    - reason: Coluna errada
+      sql: CREATE INDEX i ON checkins (gate);
+    - reason: Tabela errada
+      sql: CREATE INDEX i ON tickets (show_id);
+
+- slug: indice-de-cobertura
+  title: Sem precisar ler a tabela
+  difficulty: dificil
+  in: [indexes/Query Optimization, performance-optimization/Using Indexes]
+  statement: |
+    Esta consulta roda o tempo todo: `SELECT show_date, ticket_price FROM shows WHERE band_id = ?`. Crie em `shows` um único índice que permita responder sem ler a tabela, com colunas nesta ordem: `band_id`, `show_date`, `ticket_price`.
+  ordered: true
+  check: SELECT ii.seqno, ii.name FROM sqlite_master m, pragma_index_info(m.name) ii WHERE m.type = 'index' AND m.tbl_name = 'shows' ORDER BY ii.seqno;
+  solution: |
+    CREATE INDEX idx_shows_cobertura ON shows (band_id, show_date, ticket_price);
+  hints:
+    - Um índice cobre a consulta quando contém todas as colunas que ela usa.
+  explanation: |
+    Um índice de cobertura evita a leitura da tabela, porque todos os dados já estão nele. O custo é um índice maior e escritas mais caras.
+  traps:
+    - reason: Falta o preço
+      sql: CREATE INDEX i ON shows (band_id, show_date);
+    - reason: Só o filtro
+      sql: CREATE INDEX i ON shows (band_id);
+
+- slug: transacao-na-procedure
+  title: Quem controla a transação?
+  difficulty: dificil
+  in: [stored-procedures]
+  statement: |
+    No PostgreSQL, uma rotina precisa processar um milhão de pedidos, confirmando a cada mil para não manter uma transação gigante. O que usar?
+  options:
+    - text: Uma procedure, porque ela pode executar COMMIT durante a execução
+      why: Certo. Funções rodam dentro da transação de quem as chamou e não podem dar COMMIT.
+    - text: Uma função, porque toda rotina pode dar COMMIT
+      why: Funções não podem controlar a transação no PostgreSQL.
+    - text: Uma view, porque ela é executada aos poucos
+      why: View não executa alterações em lotes.
+    - text: Um único UPDATE sem transação
+      why: Um UPDATE já roda em uma transação, e ela seria gigante.
+  answer: 0
+  hints: []
+  explanation: |
+    Lotes menores reduzem bloqueios e o volume de log. Por outro lado, a rotina precisa saber continuar de onde parou caso falhe no meio.
+  traps: []
+
+- slug: cursor-ou-conjunto
+  title: Linha por linha ou de uma vez?
+  difficulty: medio
+  in: [stored-procedures]
+  statement: |
+    Uma procedure usa um laço para percorrer cada show e atualizar o preço, um por vez. Todos recebem o mesmo reajuste de 10%. Como melhorar?
+  options:
+    - text: Trocar o laço por um único UPDATE, que trabalha sobre o conjunto
+      why: Certo. O banco é otimizado para operar sobre conjuntos, e isso costuma ser bem mais rápido.
+    - text: Adicionar uma pausa entre as atualizações
+      why: Deixaria tudo ainda mais lento.
+    - text: Fazer o mesmo laço na aplicação
+      why: Mantém o problema e ainda adiciona idas e voltas pela rede.
+    - text: Abrir uma transação nova para ler cada linha
+      why: Isso aumenta o custo sem nenhum ganho.
+  answer: 0
+  hints: []
+  explanation: |
+    Pensar em conjuntos é a principal mudança de mentalidade em SQL. Laços e cursores só valem quando cada linha exige uma lógica impossível de expressar em uma única instrução.
+  traps: []

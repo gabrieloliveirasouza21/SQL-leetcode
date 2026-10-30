@@ -1,0 +1,512 @@
+- slug: view-de-vendas
+  title: Uma view de vendas
+  difficulty: medio
+  in: [views/Creating Views]
+  statement: |
+    Crie a view `vendas_por_show` com as colunas `show_id` e `vendidos`. Ela mostra, para cada show, o total de ingressos pagos, com 0 quando não houver venda.
+  ordered: true
+  must_use: [CREATE VIEW]
+  check: SELECT show_id, vendidos FROM vendas_por_show ORDER BY show_id;
+  solution: |
+    CREATE VIEW vendas_por_show AS
+    SELECT s.id AS show_id, COALESCE(SUM(t.quantity), 0) AS vendidos
+    FROM shows s
+    LEFT JOIN tickets t ON t.show_id = s.id AND t.status = 'pago'
+    GROUP BY s.id;
+  hints:
+    - Toda a lógica do relatório pode ficar dentro da view.
+  explanation: |
+    Uma view esconde a complexidade e dá um único lugar para a regra de negócio. Quando a definição de venda mudar, só ela precisa mudar.
+  traps:
+    - reason: Sem shows com zero
+      sql: CREATE VIEW vendas_por_show AS SELECT t.show_id, SUM(t.quantity) AS vendidos FROM tickets t WHERE t.status = 'pago' GROUP BY t.show_id;
+
+- slug: view-sobre-view
+  title: View sobre view
+  difficulty: dificil
+  in: [views/Creating Views]
+  statement: |
+    A view `vendas_por_show` já existe, com as colunas `show_id` e `vendidos`. Crie a view `vendas_por_banda`, com `band_id` e `vendidos`, somando por banda a partir dela.
+  ordered: true
+  setup: |
+    CREATE VIEW vendas_por_show AS
+    SELECT s.id AS show_id, COALESCE(SUM(t.quantity), 0) AS vendidos
+    FROM shows s
+    LEFT JOIN tickets t ON t.show_id = s.id AND t.status = 'pago'
+    GROUP BY s.id;
+  must_use: [vendas_por_show]
+  check: SELECT band_id, vendidos FROM vendas_por_banda ORDER BY band_id;
+  solution: |
+    CREATE VIEW vendas_por_banda AS
+    SELECT s.band_id, SUM(v.vendidos) AS vendidos
+    FROM vendas_por_show v
+    JOIN shows s ON s.id = v.show_id
+    GROUP BY s.band_id;
+  hints:
+    - Uma view pode ser usada como uma tabela no FROM.
+  explanation: |
+    Views em camadas reaproveitam regras, mas camadas demais dificultam entender o que o banco realmente executa e podem esconder lentidão.
+  traps:
+    - reason: Só repassa a outra view
+      sql: CREATE VIEW vendas_por_banda AS SELECT show_id AS band_id, vendidos FROM vendas_por_show;
+
+- slug: view-de-seguranca
+  title: View sem dados sensíveis
+  difficulty: facil
+  in: [views/Creating Views]
+  statement: |
+    Um parceiro só pode ver nome e veículo dos jornalistas. Crie a view `imprensa_publica`, com as colunas `full_name` e `outlet` de `press_contacts`.
+  ordered: true
+  must_use: [CREATE VIEW]
+  check: SELECT * FROM imprensa_publica ORDER BY full_name;
+  solution: |
+    CREATE VIEW imprensa_publica AS
+    SELECT full_name, outlet
+    FROM press_contacts;
+  hints:
+    - O corretor faz SELECT * na view. E-mail e telefone não podem aparecer.
+  explanation: |
+    Combinada com permissões, uma view pode expor só parte de uma tabela. O parceiro recebe acesso à view, não à tabela.
+  traps:
+    - reason: Expõe e-mail e telefone
+      sql: CREATE VIEW imprensa_publica AS SELECT * FROM press_contacts;
+
+- slug: alterar-regra-da-view
+  title: A regra da venda mudou
+  difficulty: medio
+  in: [views/Modifying Views]
+  statement: |
+    A view `vendidos` conta como venda só os pedidos `pago`. Agora, `reservado` também conta. Recrie a view com o mesmo nome e as mesmas colunas, `show_id` e `total`, considerando os dois status.
+  ordered: true
+  setup: CREATE VIEW vendidos AS SELECT show_id, SUM(quantity) AS total FROM tickets WHERE status = 'pago' GROUP BY show_id;
+  must_use: [DROP VIEW, CREATE VIEW]
+  check: SELECT show_id, total FROM vendidos ORDER BY show_id;
+  solution: |
+    DROP VIEW vendidos;
+    CREATE VIEW vendidos AS
+    SELECT show_id, SUM(quantity) AS total
+    FROM tickets
+    WHERE status IN ('pago', 'reservado')
+    GROUP BY show_id;
+  hints:
+    - Quem consulta a view não muda nada. Essa é a vantagem.
+  explanation: |
+    Mudar a regra em um só lugar é a grande vantagem das views. Todas as consultas que a usam passam a seguir a regra nova.
+  traps:
+    - reason: A regra continua igual
+      sql: DROP VIEW vendidos; CREATE VIEW vendidos AS SELECT show_id, SUM(quantity) AS total FROM tickets WHERE status = 'pago' GROUP BY show_id;
+    - reason: Inclui cancelados
+      sql: DROP VIEW vendidos; CREATE VIEW vendidos AS SELECT show_id, SUM(quantity) AS total FROM tickets GROUP BY show_id;
+
+- slug: renomear-coluna-da-view
+  title: Coluna com outro nome
+  difficulty: facil
+  in: [views/Modifying Views]
+  statement: |
+    A view `resumo` tem as colunas `band_id` e `n`. Recrie a view para a segunda coluna se chamar `shows_total`, mantendo a mesma contagem de shows por banda.
+  ordered: true
+  setup: CREATE VIEW resumo AS SELECT band_id, COUNT(*) AS n FROM shows GROUP BY band_id;
+  must_use: [DROP VIEW, CREATE VIEW]
+  check: SELECT band_id, shows_total FROM resumo ORDER BY band_id;
+  solution: |
+    DROP VIEW resumo;
+    CREATE VIEW resumo AS
+    SELECT band_id, COUNT(*) AS shows_total
+    FROM shows
+    GROUP BY band_id;
+  hints:
+    - Os apelidos definem as colunas da view.
+  explanation: |
+    Trocar o nome de uma coluna quebra quem usa o nome antigo. Antes de mudar uma view, procure quem depende dela.
+  traps:
+    - reason: A coluna continua n
+      sql: DROP VIEW resumo; CREATE VIEW resumo AS SELECT band_id, COUNT(*) AS n FROM shows GROUP BY band_id;
+
+- slug: apagar-se-existir
+  title: Apagar sem medo
+  difficulty: facil
+  in: [views/Dropping Views]
+  statement: |
+    Escreva um comando seguro para rodar duas vezes, que apague a view `relatorio_antigo`. Neste banco, ela existe.
+  ordered: true
+  setup: CREATE VIEW relatorio_antigo AS SELECT id FROM shows;
+  must_use: [DROP VIEW, IF EXISTS]
+  check: SELECT COUNT(*) FROM sqlite_master WHERE name = 'relatorio_antigo';
+  solution: |
+    DROP VIEW IF EXISTS relatorio_antigo;
+  hints:
+    - A mesma cláusula de DROP TABLE vale aqui.
+  explanation: |
+    IF EXISTS é especialmente útil em scripts de migração, que podem rodar em bancos com estados diferentes.
+  traps:
+    - reason: Falha na segunda execução
+      sql: DROP VIEW relatorio_antigo;
+
+- slug: view-atualiza-sozinha
+  title: A view envelhece?
+  difficulty: facil
+  in: [views/Creating Views]
+  statement: |
+    Uma view normal foi criada ontem sobre `shows`. Hoje, novos shows foram inseridos. O que uma consulta à view retorna?
+  options:
+    - text: Os dados atuais, incluindo os shows novos
+      why: Certo. A view guarda a consulta, que é executada novamente a cada uso.
+    - text: Os dados de ontem, porque a view é uma cópia
+      why: Isso descreve uma view materializada ou uma tabela criada com SELECT.
+    - text: Um erro, porque a tabela mudou
+      why: Mudar as linhas não afeta a view.
+    - text: Só os shows novos
+      why: A consulta roda sobre a tabela inteira.
+  answer: 0
+  hints: []
+  explanation: |
+    Views materializadas, como as do PostgreSQL, guardam o resultado e precisam de REFRESH. Elas trocam dados sempre atuais por leituras muito mais rápidas.
+  traps: []
+
+- slug: view-materializada
+  title: Quando materializar
+  difficulty: medio
+  in: [views/Modifying Views]
+  statement: |
+    Um painel executa uma view pesada milhares de vezes por hora. Os números podem atrasar até 10 minutos. Qual é a melhor abordagem no PostgreSQL?
+  options:
+    - text: Uma view materializada, atualizada a cada 10 minutos
+      why: Certo. O cálculo pesado roda só no refresh, e a leitura fica rápida.
+    - text: Uma view comum, porque ela guarda o resultado
+      why: A view comum executa a consulta a cada uso.
+    - text: Copiar os dados para uma planilha
+      why: Isso adiciona passos manuais e não resolve o problema do painel.
+    - text: Criar índices em todas as colunas da view
+      why: Índices podem ajudar, mas custam escrita e não eliminam uma agregação pesada.
+  answer: 0
+  hints: []
+  explanation: |
+    A pergunta decisiva é quanta defasagem é aceitável. Se os dados podem atrasar, materializar costuma ser a saída mais simples.
+  traps: []
+
+- slug: indice-unico-email
+  title: E-mail único por índice
+  difficulty: medio
+  in: [indexes/Managing Indexes]
+  statement: |
+    Crie um índice único chamado `idx_contacts_email` em `press_contacts(email)`. Isso impede e-mails repetidos.
+  ordered: true
+  must_use: [CREATE UNIQUE INDEX]
+  check: SELECT name, "unique" FROM pragma_index_list('press_contacts') ORDER BY name;
+  rejects:
+    - INSERT INTO press_contacts (full_name, email) SELECT 'Repetido', email FROM press_contacts LIMIT 1;
+  solution: |
+    CREATE UNIQUE INDEX idx_contacts_email ON press_contacts (email);
+  hints:
+    - Um índice também pode impor uma regra.
+  explanation: |
+    UNIQUE em uma coluna cria um índice por baixo. Criar o índice separado permite adicioná-lo depois e dar a ele o nome que preferir.
+  traps:
+    - reason: Índice comum não impede repetição
+      sql: CREATE INDEX idx_contacts_email ON press_contacts (email);
+
+- slug: indice-parcial
+  title: Índice só do que importa
+  difficulty: dificil
+  in: [indexes/Managing Indexes, performance-optimization/Using Indexes]
+  statement: |
+    Quase toda consulta filtra por pedidos pagos de um show. Crie `idx_tickets_pagos` em `tickets(show_id)`, indexando só as linhas com `status = 'pago'`.
+  ordered: true
+  must_use: [WHERE]
+  check: SELECT name, partial FROM pragma_index_list('tickets') ORDER BY name;
+  solution: |
+    CREATE INDEX idx_tickets_pagos ON tickets (show_id)
+    WHERE status = 'pago';
+  hints:
+    - CREATE INDEX aceita um WHERE no fim.
+  explanation: |
+    Um índice parcial é menor e mais barato de manter. O SQLite só o usa quando a consulta inclui a mesma condição.
+  traps:
+    - reason: Índice completo
+      sql: CREATE INDEX idx_tickets_pagos ON tickets (show_id);
+
+- slug: indice-de-expressao
+  title: Índice para busca sem maiúsculas
+  difficulty: dificil
+  in: [indexes/Query Optimization]
+  statement: |
+    A consulta `WHERE LOWER(email) = ?` não aproveita um índice comum em `email`. Crie o índice `idx_email_lower` sobre a expressão `LOWER(email)` em `press_contacts`.
+  ordered: true
+  must_use: [LOWER]
+  check: SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'press_contacts' AND sql LIKE '%lower(email)%' COLLATE NOCASE;
+  solution: |
+    CREATE INDEX idx_email_lower ON press_contacts (LOWER(email));
+  hints:
+    - Um índice pode guardar o resultado de uma expressão.
+  explanation: |
+    Um índice comum guarda o valor da coluna, não o valor transformado. Índices de expressão resolvem isso quando a consulta usa exatamente a mesma expressão.
+  traps:
+    - reason: Índice comum na coluna
+      sql: CREATE INDEX idx_email_lower ON press_contacts (email);
+
+- slug: coluna-principal-do-indice
+  title: A primeira coluna do índice
+  difficulty: medio
+  in: [indexes/Query Optimization]
+  statement: |
+    Existe um índice em `shows(band_id, show_date)`. Qual destas consultas não consegue usá-lo para localizar as linhas?
+  options:
+    - text: "SELECT * FROM shows WHERE show_date = '2026-03-14'"
+      why: Certo. Sem filtrar a primeira coluna, o índice não ajuda a localizar as linhas, como procurar por nome em uma lista ordenada por sobrenome.
+    - text: "SELECT * FROM shows WHERE band_id = 1"
+      why: Usa a primeira coluna, e o índice serve.
+    - text: "SELECT * FROM shows WHERE band_id = 1 AND show_date = '2026-03-14'"
+      why: Usa as duas colunas, o caso ideal.
+    - text: "SELECT * FROM shows WHERE band_id = 1 ORDER BY show_date"
+      why: Filtra pela primeira e aproveita a ordem da segunda.
+  answer: 0
+  hints: []
+  explanation: |
+    Esta é a regra do prefixo à esquerda. Por isso, a ordem das colunas de um índice composto é decidida pelas consultas mais frequentes.
+  traps: []
+
+- slug: indice-em-tudo
+  title: Índice em todas as colunas?
+  difficulty: facil
+  in: [indexes/Query Optimization]
+  statement: |
+    Para acelerar o sistema, alguém propõe criar um índice para cada coluna de cada tabela. Qual é o problema?
+  options:
+    - text: Cada índice ocupa espaço e deixa INSERT, UPDATE e DELETE mais lentos
+      why: Certo. Toda escrita precisa atualizar os índices da tabela.
+    - text: Bancos permitem só um índice por tabela
+      why: Tabelas podem ter vários.
+    - text: Índices fazem as consultas retornarem menos linhas
+      why: Índices nunca mudam o resultado.
+    - text: Índices removem a necessidade de chave primária
+      why: São coisas diferentes, e a chave continua necessária.
+  answer: 0
+  hints: []
+  explanation: |
+    Crie índices a partir das consultas reais. Colunas com poucos valores distintos, como um booleano, quase nunca compensam.
+  traps: []
+
+- slug: remover-indice-se-existir
+  title: Remover um índice com segurança
+  difficulty: facil
+  in: [indexes/Managing Indexes]
+  statement: |
+    Remova o índice `idx_merch_item`, de forma que o comando não falhe se ele já tiver sido removido.
+  ordered: true
+  setup: CREATE INDEX idx_merch_item ON merch (item);
+  must_use: [DROP INDEX, IF EXISTS]
+  check: SELECT COUNT(*) FROM sqlite_master WHERE name = 'idx_merch_item';
+  solution: |
+    DROP INDEX IF EXISTS idx_merch_item;
+  hints:
+    - A estrutura é a mesma de DROP TABLE.
+  explanation: |
+    Remover um índice não altera dados, mas pode deixar consultas muito mais lentas. Em produção, acompanhe o impacto.
+  traps:
+    - reason: Falha se não existir
+      sql: DROP INDEX idx_merch_item;
+
+- slug: transferir-estoque
+  title: Transferir estoque entre produtos
+  difficulty: medio
+  in: [transactions/BEGIN, transactions/COMMIT]
+  statement: |
+    Mova 5 unidades de estoque do produto de maior `stock` para o de menor `id` entre os que têm estoque 0. Faça isso em uma transação e calcule os ids com subconsultas.
+  ordered: true
+  must_use: [BEGIN, COMMIT]
+  check: SELECT id, stock FROM merch ORDER BY id;
+  solution: |
+    BEGIN;
+    UPDATE merch SET stock = 5
+    WHERE id = (SELECT MIN(id) FROM merch WHERE stock = 0);
+    UPDATE merch SET stock = stock - 5
+    WHERE id = (SELECT id FROM merch ORDER BY stock DESC, id LIMIT 1);
+    COMMIT;
+  hints:
+    - Os ids mudam entre os ambientes.
+    - A ordem das duas alterações pode mudar o que a subconsulta encontra. Pense nisso.
+  explanation: |
+    Transferências são o exemplo clássico de transação, porque dois UPDATEs precisam acontecer juntos. Dentro dela, um UPDATE enxerga o efeito do anterior.
+  traps:
+    - reason: Sem transação
+      sql: UPDATE merch SET stock = 5 WHERE id = (SELECT MIN(id) FROM merch WHERE stock = 0); UPDATE merch SET stock = stock - 5 WHERE id = (SELECT id FROM merch ORDER BY stock DESC, id LIMIT 1);
+    - reason: Só adiciona, sem retirar
+      sql: BEGIN; UPDATE merch SET stock = 5 WHERE id = (SELECT MIN(id) FROM merch WHERE stock = 0); COMMIT;
+
+- slug: desfazer-engano
+  title: Desfazer um engano
+  difficulty: facil
+  in: [transactions/ROLLBACK]
+  statement: |
+    Dentro de uma transação, zere o preço de todos os shows por engano e depois desfaça tudo. No final, nenhum preço pode ter mudado.
+  ordered: true
+  must_use: [BEGIN, UPDATE, ROLLBACK]
+  check: SELECT id, ticket_price FROM shows ORDER BY id;
+  solution: |
+    BEGIN;
+    UPDATE shows SET ticket_price = 0;
+    ROLLBACK;
+  hints:
+    - ROLLBACK volta ao estado do BEGIN.
+  explanation: |
+    Sem BEGIN, cada comando é confirmado na hora, e não há o que desfazer. Se for mexer em dados importantes à mão, abra uma transação antes.
+  traps:
+    - reason: Confirma o engano
+      sql: BEGIN; UPDATE shows SET ticket_price = 0; COMMIT;
+
+- slug: dois-savepoints
+  title: Dois pontos de salvamento
+  difficulty: dificil
+  in: [transactions/SAVEPOINT]
+  statement: |
+    Em uma transação, faça nesta ordem:
+
+    Crie o savepoint `a`. Aumente em 1 o estoque de todo `merch`. Crie o savepoint `b`. Zere o estoque de todo `merch`. Volte ao savepoint `b`. Confirme.
+
+    No final, cada produto deve ter o estoque original mais 1.
+  ordered: true
+  must_use: [SAVEPOINT, ROLLBACK TO, COMMIT]
+  check: SELECT id, stock FROM merch ORDER BY id;
+  solution: |
+    BEGIN;
+    SAVEPOINT a;
+    UPDATE merch SET stock = stock + 1;
+    SAVEPOINT b;
+    UPDATE merch SET stock = 0;
+    ROLLBACK TO b;
+    COMMIT;
+  hints:
+    - Voltar a um savepoint não desfaz o que veio antes dele.
+  explanation: |
+    Savepoints funcionam como uma pilha. Voltar a `b` desfaz o que veio depois de `b` e mantém o que veio antes.
+  traps:
+    - reason: Volta longe demais
+      sql: BEGIN; SAVEPOINT a; UPDATE merch SET stock = stock + 1; SAVEPOINT b; UPDATE merch SET stock = 0; ROLLBACK TO a; COMMIT;
+
+- slug: liberar-savepoint
+  title: Liberar um savepoint
+  difficulty: medio
+  in: [transactions/SAVEPOINT]
+  statement: |
+    Em uma transação, crie o savepoint `etapa`, reduza em 10% o `price` de todo `merch`, libere o savepoint com `RELEASE` e confirme.
+  ordered: true
+  must_use: [SAVEPOINT, RELEASE, COMMIT]
+  check: SELECT id, ROUND(price, 2) FROM merch ORDER BY id;
+  solution: |
+    BEGIN;
+    SAVEPOINT etapa;
+    UPDATE merch SET price = price * 0.9;
+    RELEASE etapa;
+    COMMIT;
+  hints:
+    - RELEASE não desfaz nada. Ele só descarta o ponto de salvamento.
+  explanation: |
+    RELEASE não confirma os dados, e quem confirma é o COMMIT final. Se a transação sofrer ROLLBACK, a alteração também é desfeita.
+  traps:
+    - reason: Desfaz a alteração
+      sql: BEGIN; SAVEPOINT etapa; UPDATE merch SET price = price * 0.9; ROLLBACK TO etapa; RELEASE etapa; COMMIT;
+
+- slug: atomicidade
+  title: Falha no meio do caminho
+  difficulty: facil
+  in: [transactions/ACID]
+  statement: |
+    Uma transação tem três comandos. O segundo falha, e o sistema executa ROLLBACK. Qual propriedade garante que o efeito do primeiro comando também seja desfeito?
+  options:
+    - text: Atomicidade
+      why: Certo. A transação inteira acontece, ou nada acontece.
+    - text: Durabilidade
+      why: Durabilidade trata do que já foi confirmado com COMMIT.
+    - text: Isolamento
+      why: Isolamento trata de transações simultâneas.
+    - text: Consistência
+      why: Consistência trata de respeitar as regras do banco.
+  answer: 0
+  hints: []
+  explanation: |
+    Atômico significa indivisível. É o que evita, por exemplo, retirar dinheiro de uma conta sem depositar na outra.
+  traps: []
+
+- slug: consistencia-em-acid
+  title: A regra que nunca é quebrada
+  difficulty: medio
+  in: [transactions/ACID]
+  statement: |
+    Uma coluna tem `CHECK (stock >= 0)`. Uma transação tenta deixar o estoque negativo, e o banco a recusa. Qual letra de ACID isso representa?
+  options:
+    - text: Consistência
+      why: Certo. A transação só pode levar o banco de um estado válido para outro válido.
+    - text: Atomicidade
+      why: Atomicidade garante o tudo ou nada, mas a regra violada aqui é de validade dos dados.
+    - text: Durabilidade
+      why: Durabilidade é sobreviver a falhas depois do COMMIT.
+    - text: Isolamento
+      why: Não há concorrência no cenário.
+  answer: 0
+  hints: []
+  explanation: |
+    O C de ACID é diferente do C do teorema CAP, em que consistência significa que todas as réplicas enxergam o mesmo valor.
+  traps: []
+
+- slug: leitura-nao-repetivel
+  title: O preço mudou durante a leitura
+  difficulty: dificil
+  in: [transactions/Transaction Isolation Levels]
+  statement: |
+    A transação A lê o preço de um show e obtém 100. A transação B altera para 120 e faz COMMIT. A transação A lê de novo e obtém 120. Que anomalia é essa?
+  options:
+    - text: Leitura não repetível
+      why: Certo. O mesmo dado foi lido duas vezes, com valores diferentes.
+    - text: Leitura suja
+      why: B já tinha feito COMMIT, então o dado lido estava confirmado.
+    - text: Leitura fantasma
+      why: Fantasma é sobre linhas novas em uma consulta, não sobre o valor de uma linha.
+    - text: Deadlock
+      why: Deadlock é uma espera circular entre transações, e aqui nada ficou travado.
+  answer: 0
+  hints: []
+  explanation: |
+    REPEATABLE READ evita essa anomalia. READ COMMITTED, padrão em PostgreSQL e Oracle, permite. Em muitos sistemas isso é aceitável, mas em cálculos com várias leituras pode gerar erro.
+  traps: []
+
+- slug: leitura-fantasma
+  title: Um show a mais
+  difficulty: dificil
+  in: [transactions/Transaction Isolation Levels]
+  statement: |
+    A transação A conta os shows de uma banda e obtém 3. A transação B insere um novo show dessa banda e faz COMMIT. A transação A conta de novo e obtém 4. Qual é o nome disso?
+  options:
+    - text: Leitura fantasma
+      why: Certo. Uma linha nova apareceu na mesma consulta.
+    - text: Leitura suja
+      why: O dado de B já estava confirmado.
+    - text: Leitura não repetível
+      why: Esse termo se refere ao valor de uma linha já lida, não a linhas novas.
+    - text: Atualização perdida
+      why: Nenhuma escrita foi sobrescrita.
+  answer: 0
+  hints: []
+  explanation: |
+    SERIALIZABLE evita fantasmas segundo o padrão. Na prática, cada banco tem variações: o REPEATABLE READ do PostgreSQL já evita, por exemplo.
+  traps: []
+
+- slug: deadlock
+  title: Duas transações presas
+  difficulty: dificil
+  in: [transactions/Transaction Isolation Levels]
+  statement: |
+    A transação A bloqueia o pedido 1 e espera o pedido 2. A transação B bloqueia o pedido 2 e espera o pedido 1. O que acontece, e como reduzir o problema?
+  options:
+    - text: Um deadlock. O banco aborta uma delas, e acessar os recursos sempre na mesma ordem reduz o risco
+      why: Certo. A ordem consistente elimina a espera circular, e a transação abortada deve ser repetida.
+    - text: As duas ficam esperando para sempre, sem solução
+      why: Os bancos detectam o ciclo e abortam uma das transações.
+    - text: As duas são confirmadas, e o banco mistura os valores
+      why: O banco não confirma alterações em conflito desse jeito.
+    - text: Nada, porque bloqueios só existem em SERIALIZABLE
+      why: Escritas geram bloqueios em todos os níveis.
+  answer: 0
+  hints: []
+  explanation: |
+    Transações curtas e ordem fixa de acesso são as principais defesas. A aplicação precisa estar pronta para repetir a transação que for abortada.
+  traps: []

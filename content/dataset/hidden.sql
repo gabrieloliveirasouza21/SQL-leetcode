@@ -12,7 +12,9 @@ INSERT INTO bands VALUES
 INSERT INTO venues VALUES
   (20, 'Arena Tupi', 'São Paulo', 9000),
   (21, 'Porão',      'Recife',     500),
-  (22, 'Cúpula',     'Manaus',    2500);
+  (22, 'Cúpula',     'Manaus',    2500),
+  (23, 'Palco Único', 'Natal',     700),
+  (24, 'Clube Paulista', 'São Paulo', 400);
 
 INSERT INTO shows VALUES
   (30, 10, 20, '2026-01-10', 100),
@@ -25,7 +27,11 @@ INSERT INTO shows VALUES
   (37, 16, 21, '2027-02-01',  30),
   (38, 14, 22, '2026-06-06',  55),
   (39, 14, 21, '2026-06-06',  55),
-  (40, 14, 20, '2026-06-06', 200);
+  (40, 14, 20, '2026-06-06', 200),
+  (41, 10, 23, '2026-09-09', 500),
+  (42, 10, 23, '2026-09-10', 500),
+  (43, 15, 24, '2026-10-10', 150),
+  (44, 15, 23, '2026-11-11', 90);
 
 INSERT INTO tickets VALUES
   (50, 30, 'Alê',   2, 'pago'),
@@ -37,7 +43,9 @@ INSERT INTO tickets VALUES
   (56, 35, 'Guto',  2, 'pago'),
   (57, 38, 'Hana',  1, 'cancelado'),
   (58, 40, 'Ivo',   5, 'pago'),
-  (59, 33, 'Jade',  1, 'pago');
+  (59, 33, 'Jade',  1, 'pago'),
+  (60, 41, 'Kira',  1, 'pago'),
+  (61, 37, 'Lu',    1, 'reservado');
 
 INSERT INTO members VALUES
   (100, 'Zeca Mota',   10, NULL),
@@ -54,7 +62,8 @@ INSERT INTO merch VALUES
   (11, 13,   'Vinil Forge', 200,   1),
   (12, 13,   'Caneca',      35.75, 24),
   (13, NULL, 'Bandana',     20,    0),
-  (14, 10,   'Boné Ruína',  40,    50);
+  (14, 10,   'Boné Ruína',  40,    50),
+  (15, NULL, 'Adesivo',     5,     0);
 
 INSERT INTO press_contacts VALUES
   (10, 'Ana Beatriz',     'ANA@X.ORG',      'Zine Sul', '(81) 95555-1000'),

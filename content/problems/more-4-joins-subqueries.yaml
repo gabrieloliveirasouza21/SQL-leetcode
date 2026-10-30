@@ -1,0 +1,646 @@
+- slug: agenda-sao-paulo
+  title: Agenda de São Paulo
+  difficulty: facil
+  in: [join-queries/INNER JOIN]
+  statement: |
+    Liste o nome da banda e a data dos shows em casas de `São Paulo`, ordenados por data e depois por banda.
+  ordered: true
+  solution: |
+    SELECT b.name, s.show_date
+    FROM shows s
+    JOIN venues v ON v.id = s.venue_id
+    JOIN bands b ON b.id = s.band_id
+    WHERE v.city = 'São Paulo'
+    ORDER BY s.show_date, b.name;
+  hints:
+    - A cidade está em venues, e o nome em bands. Shows liga as duas.
+  explanation: |
+    INNER JOIN mantém só linhas com par nos dois lados. Como todo show tem banda e casa, nada se perde aqui.
+  traps:
+    - reason: Sem o filtro de cidade
+      sql: SELECT b.name, s.show_date FROM shows s JOIN venues v ON v.id = s.venue_id JOIN bands b ON b.id = s.band_id ORDER BY s.show_date, b.name;
+
+- slug: receita-por-cidade
+  title: Receita por cidade
+  difficulty: dificil
+  in: [join-queries/INNER JOIN]
+  statement: |
+    Para cada cidade com venda paga, retorne a cidade e a receita, com `quantity` vezes `ticket_price`. Ordene pela receita decrescente e depois pela cidade.
+  ordered: true
+  solution: |
+    SELECT v.city, SUM(t.quantity * s.ticket_price) AS receita
+    FROM tickets t
+    JOIN shows s ON s.id = t.show_id
+    JOIN venues v ON v.id = s.venue_id
+    WHERE t.status = 'pago'
+    GROUP BY v.city
+    ORDER BY receita DESC, v.city;
+  hints:
+    - Partir de tickets deixa o caminho até a cidade direto.
+  explanation: |
+    JOINs seguem as chaves, e a agregação acontece depois. Esse é o formato da maioria dos relatórios analíticos.
+  traps:
+    - reason: Sem o filtro de pago
+      sql: SELECT v.city, SUM(t.quantity * s.ticket_price) AS receita FROM tickets t JOIN shows s ON s.id = t.show_id JOIN venues v ON v.id = s.venue_id GROUP BY v.city ORDER BY receita DESC, v.city;
+    - reason: Agrupa pela casa
+      sql: SELECT v.name, SUM(t.quantity * s.ticket_price) AS receita FROM tickets t JOIN shows s ON s.id = t.show_id JOIN venues v ON v.id = s.venue_id WHERE t.status = 'pago' GROUP BY v.name ORDER BY receita DESC, v.name;
+
+- slug: casas-vazias
+  title: Casas sem programação
+  difficulty: facil
+  in: [join-queries/LEFT JOIN]
+  statement: |
+    Liste `name` das casas sem nenhum show, em ordem alfabética.
+
+    Pode haver zero linhas em algum conjunto de dados, e isso é esperado.
+  ordered: true
+  setup: INSERT INTO venues (name, city, capacity) VALUES ('Casa Nova', 'Natal', 100);
+  solution: |
+    SELECT v.name
+    FROM venues v
+    LEFT JOIN shows s ON s.venue_id = v.id
+    WHERE s.id IS NULL
+    ORDER BY v.name;
+  hints:
+    - O padrão é igual ao das bandas sem show, com outra tabela.
+  explanation: |
+    LEFT JOIN seguido de `IS NULL` é o anti-join, um dos padrões mais úteis de SQL. Ele encontra o que não tem correspondência.
+  traps:
+    - reason: INNER JOIN só traz casas com show
+      sql: SELECT DISTINCT v.name FROM venues v JOIN shows s ON s.venue_id = v.id ORDER BY v.name;
+
+- slug: shows-por-banda-com-zero
+  title: Todas as bandas, até sem show
+  difficulty: medio
+  in: [join-queries/LEFT JOIN]
+  statement: |
+    Para cada banda, retorne `name` e a quantidade de shows, com 0 para quem não tem. Ordene pela quantidade decrescente e depois pelo nome.
+  ordered: true
+  solution: |
+    SELECT b.name, COUNT(s.id) AS total
+    FROM bands b
+    LEFT JOIN shows s ON s.band_id = b.id
+    GROUP BY b.id
+    ORDER BY total DESC, b.name;
+  hints:
+    - COUNT(*) contaria a linha preenchida com NULL.
+  explanation: |
+    COUNT de uma coluna da tabela da direita ignora os NULL gerados pelo LEFT JOIN, e por isso chega a zero corretamente.
+  traps:
+    - reason: COUNT(*) conta 1 para bandas sem show
+      sql: SELECT b.name, COUNT(*) AS total FROM bands b LEFT JOIN shows s ON s.band_id = b.id GROUP BY b.id ORDER BY total DESC, b.name;
+    - reason: INNER JOIN esconde quem não tem show
+      sql: SELECT b.name, COUNT(s.id) AS total FROM bands b JOIN shows s ON s.band_id = b.id GROUP BY b.id ORDER BY total DESC, b.name;
+
+- slug: shows-sem-entrada
+  title: Pedidos pagos sem entrada
+  difficulty: medio
+  in: [join-queries/LEFT JOIN]
+  statement: |
+    Liste `id` e `buyer` dos pedidos pagos que ainda não têm nenhuma entrada em `checkins`. Ordene por `id`.
+  ordered: true
+  solution: |
+    SELECT t.id, t.buyer
+    FROM tickets t
+    LEFT JOIN checkins c ON c.ticket_id = t.id
+    WHERE t.status = 'pago' AND c.id IS NULL
+    ORDER BY t.id;
+  hints:
+    - Combine o filtro de status com o anti-join.
+  explanation: |
+    No WHERE, a condição sobre `t` é segura, porque essa é a tabela da esquerda. Filtros sobre a tabela da direita são os que transformam o LEFT JOIN em INNER JOIN.
+  traps:
+    - reason: Inclui não pagos
+      sql: SELECT t.id, t.buyer FROM tickets t LEFT JOIN checkins c ON c.ticket_id = t.id WHERE c.id IS NULL ORDER BY t.id;
+    - reason: Traz quem entrou
+      sql: SELECT t.id, t.buyer FROM tickets t JOIN checkins c ON c.ticket_id = t.id WHERE t.status = 'pago' ORDER BY t.id;
+
+- slug: pedidos-de-todos-os-shows
+  title: Todos os shows, à direita
+  difficulty: medio
+  in: [join-queries/RIGHT JOIN]
+  statement: |
+    Usando `RIGHT JOIN` a partir de `tickets`, retorne o `id` de cada show e quantos pedidos ele tem, com 0 quando não houver. Ordene pelo `id` do show.
+  ordered: true
+  must_use: [RIGHT JOIN]
+  solution: |
+    SELECT s.id, COUNT(t.id) AS pedidos
+    FROM tickets t
+    RIGHT JOIN shows s ON s.id = t.show_id
+    GROUP BY s.id
+    ORDER BY s.id;
+  hints:
+    - A tabela que deve ficar completa é a escrita depois de RIGHT JOIN.
+  explanation: |
+    RIGHT JOIN preserva a tabela da direita. A consulta equivale a um LEFT JOIN de shows com tickets, em geral mais fácil de ler.
+  traps:
+    - reason: Conta 1 para show sem pedido
+      sql: SELECT s.id, COUNT(*) FROM tickets t RIGHT JOIN shows s ON s.id = t.show_id GROUP BY s.id ORDER BY s.id;
+
+- slug: right-para-left
+  title: Reescrevendo o RIGHT JOIN
+  difficulty: facil
+  in: [join-queries/RIGHT JOIN]
+  statement: |
+    Qual consulta é equivalente a `SELECT * FROM a RIGHT JOIN b ON a.x = b.x`?
+  options:
+    - text: "SELECT * FROM b LEFT JOIN a ON a.x = b.x"
+      why: Certo. As mesmas linhas são preservadas, embora a ordem das colunas possa mudar.
+    - text: "SELECT * FROM a LEFT JOIN b ON a.x = b.x"
+      why: Essa preserva a, não b.
+    - text: "SELECT * FROM a JOIN b ON a.x = b.x"
+      why: INNER JOIN descarta as linhas de b sem par.
+    - text: "SELECT * FROM a CROSS JOIN b"
+      why: CROSS JOIN combina tudo com tudo e ignora a condição.
+  answer: 0
+  hints: []
+  explanation: |
+    Muitas equipes padronizam em LEFT JOIN, porque ler sempre na mesma direção reduz erros.
+  traps: []
+
+- slug: comparar-duas-listas
+  title: Comparar duas listas
+  difficulty: dificil
+  in: [join-queries/FULL OUTER JOIN]
+  statement: |
+    Compare `shows` e `tickets`. Retorne o `id` do show e a quantidade de pedidos, incluindo shows sem pedido. Um pedido que apontasse para um show inexistente apareceria com `id` nulo.
+
+    Use `FULL OUTER JOIN`. Ordene pelo `id` do show e depois pela quantidade.
+  ordered: true
+  must_use: [FULL]
+  solution: |
+    SELECT s.id, COUNT(t.id) AS pedidos
+    FROM shows s
+    FULL OUTER JOIN tickets t ON t.show_id = s.id
+    GROUP BY s.id
+    ORDER BY s.id, pedidos;
+  hints:
+    - Com a chave estrangeira ligada, esse lado da comparação ficará vazio, mas a consulta continua correta.
+  explanation: |
+    FULL OUTER JOIN é uma boa ferramenta de auditoria, porque mostra diferenças nos dois sentidos. Em dados de importação, ele expõe exatamente o que não bateu.
+  traps:
+    - reason: Sem contar pedidos corretamente
+      sql: SELECT s.id, COUNT(*) FROM shows s FULL OUTER JOIN tickets t ON t.show_id = s.id GROUP BY s.id ORDER BY s.id;
+
+- slug: produtos-e-shows
+  title: Banda com produto ou com show
+  difficulty: dificil
+  in: [join-queries/FULL OUTER JOIN]
+  statement: |
+    Para ligar os dois lados por banda, junte um resumo de shows por banda com um resumo de produtos por banda usando `FULL OUTER JOIN`. Só conte produtos com `band_id` preenchido.
+
+    Retorne o id da banda, a quantidade de shows e a de produtos, com 0 quando faltar um lado. Ordene pelo id da banda.
+  ordered: true
+  must_use: [FULL]
+  solution: |
+    SELECT
+      COALESCE(s.band_id, m.band_id) AS banda,
+      COALESCE(s.total, 0) AS shows,
+      COALESCE(m.total, 0) AS produtos
+    FROM (SELECT band_id, COUNT(*) AS total FROM shows GROUP BY band_id) s
+    FULL OUTER JOIN (
+      SELECT band_id, COUNT(*) AS total
+      FROM merch
+      WHERE band_id IS NOT NULL
+      GROUP BY band_id
+    ) m ON m.band_id = s.band_id
+    ORDER BY banda;
+  hints:
+    - Agregue cada lado antes de juntar. Juntar antes multiplicaria as linhas.
+    - COALESCE escolhe o id do lado que existir.
+  explanation: |
+    Juntar duas relações um-para-muitos antes de agregar gera um produto cartesiano por banda e infla as contagens. Agregar antes é a solução correta.
+  traps:
+    - reason: Join antes de agregar multiplica linhas
+      sql: SELECT b.id, COUNT(s.id), COUNT(m.id) FROM bands b JOIN shows s ON s.band_id = b.id LEFT JOIN merch m ON m.band_id = b.id GROUP BY b.id ORDER BY b.id;
+
+- slug: mentor-de-cada-um
+  title: Quem ensinou quem
+  difficulty: medio
+  in: [join-queries/Self Join]
+  statement: |
+    Liste o nome de cada músico e o nome do mentor. Quem não tem mentor aparece com nulo. Ordene pelo nome do músico.
+  ordered: true
+  solution: |
+    SELECT m.name, o.name AS mentor
+    FROM members m
+    LEFT JOIN members o ON o.id = m.mentor_id
+    ORDER BY m.name;
+  hints:
+    - A mesma tabela entra duas vezes, com apelidos diferentes.
+    - Quem não tem mentor precisa continuar no resultado.
+  explanation: |
+    Um self join trata a tabela como se fossem duas. O apelido é o que permite diferenciar o aluno do mentor.
+  traps:
+    - reason: INNER JOIN elimina quem não tem mentor
+      sql: SELECT m.name, o.name FROM members m JOIN members o ON o.id = m.mentor_id ORDER BY m.name;
+    - reason: Ligação invertida
+      sql: SELECT m.name, o.name FROM members m LEFT JOIN members o ON m.id = o.mentor_id ORDER BY m.name;
+
+- slug: bandas-do-mesmo-pais
+  title: Parceiras de país
+  difficulty: medio
+  in: [join-queries/Self Join]
+  statement: |
+    Liste pares de bandas do mesmo país, cada par uma vez, com o nome de menor `id` primeiro. Retorne o país e os dois nomes. Ordene pelo país e depois pelos dois nomes.
+  ordered: true
+  solution: |
+    SELECT a.country, a.name, b.name
+    FROM bands a
+    JOIN bands b ON b.country = a.country AND a.id < b.id
+    ORDER BY a.country, a.name, b.name;
+  hints:
+    - Sem `a.id < b.id`, cada banda forma par consigo mesma.
+  explanation: |
+    A desigualdade evita pares invertidos e pares da banda com ela mesma. Esse truque vale em qualquer comparação de pares.
+  traps:
+    - reason: Pares repetidos
+      sql: SELECT a.country, a.name, b.name FROM bands a JOIN bands b ON b.country = a.country AND a.id <> b.id ORDER BY a.country, a.name, b.name;
+    - reason: Inclui a própria banda
+      sql: SELECT a.country, a.name, b.name FROM bands a JOIN bands b ON b.country = a.country AND a.id <= b.id ORDER BY a.country, a.name, b.name;
+
+- slug: mesmo-mentor
+  title: Colegas de mentor
+  difficulty: dificil
+  in: [join-queries/Self Join]
+  statement: |
+    Liste pares de músicos com o mesmo mentor, cada par uma vez, com o menor `id` primeiro. Retorne os dois nomes e o nome do mentor. Ordene pelo mentor e depois pelos dois nomes.
+  ordered: true
+  solution: |
+    SELECT a.name, b.name, m.name AS mentor
+    FROM members a
+    JOIN members b ON b.mentor_id = a.mentor_id AND a.id < b.id
+    JOIN members m ON m.id = a.mentor_id
+    ORDER BY mentor, a.name, b.name;
+  hints:
+    - São três papéis para a mesma tabela.
+  explanation: |
+    Nulos não casam em JOIN, então músicos sem mentor não formam pares entre si. Essa é a regra correta aqui, mas nem sempre é o que se quer.
+  traps:
+    - reason: Sem o terceiro papel
+      sql: SELECT a.name, b.name, a.mentor_id FROM members a JOIN members b ON b.mentor_id = a.mentor_id AND a.id < b.id ORDER BY a.mentor_id, a.name, b.name;
+    - reason: Pares repetidos
+      sql: SELECT a.name, b.name, m.name AS mentor FROM members a JOIN members b ON b.mentor_id = a.mentor_id AND a.id <> b.id JOIN members m ON m.id = a.mentor_id ORDER BY mentor, a.name, b.name;
+
+- slug: grade-de-portoes
+  title: Todos os portões em todas as casas
+  difficulty: facil
+  in: [join-queries/Cross Join]
+  statement: |
+    Combine cada casa com cada portão distinto de `checkins`. Retorne o nome da casa e o portão, ordenados por casa e depois por portão.
+  ordered: true
+  solution: |
+    SELECT v.name, g.gate
+    FROM venues v
+    CROSS JOIN (SELECT DISTINCT gate FROM checkins) g
+    ORDER BY v.name, g.gate;
+  hints:
+    - Sem DISTINCT, cada entrada viraria uma linha.
+  explanation: |
+    CROSS JOIN gera todas as combinações, o que serve para montar grades de planejamento.
+  traps:
+    - reason: Portões repetidos
+      sql: SELECT v.name, c.gate FROM venues v CROSS JOIN checkins c ORDER BY v.name, c.gate;
+
+- slug: buraco-na-grade
+  title: Os buracos na grade
+  difficulty: dificil
+  in: [join-queries/Cross Join]
+  statement: |
+    Para cada combinação de casa e banda ainda sem show entre elas, retorne o nome da casa e o da banda. Considere só bandas em atividade. Ordene por casa e depois por banda.
+  ordered: true
+  solution: |
+    SELECT v.name, b.name
+    FROM venues v
+    CROSS JOIN bands b
+    LEFT JOIN shows s ON s.venue_id = v.id AND s.band_id = b.id
+    WHERE b.disbanded_year IS NULL AND s.id IS NULL
+    ORDER BY v.name, b.name;
+  hints:
+    - Primeiro gere todas as combinações. Depois descubra quais não têm correspondência.
+  explanation: |
+    Gerar as possibilidades e subtrair o que existe é o padrão para encontrar o que falta. Ele funciona em cronogramas, relatórios e auditorias.
+  traps:
+    - reason: Inclui bandas encerradas
+      sql: SELECT v.name, b.name FROM venues v CROSS JOIN bands b LEFT JOIN shows s ON s.venue_id = v.id AND s.band_id = b.id WHERE s.id IS NULL ORDER BY v.name, b.name;
+    - reason: Traz as combinações que existem
+      sql: SELECT v.name, b.name FROM venues v CROSS JOIN bands b JOIN shows s ON s.venue_id = v.id AND s.band_id = b.id WHERE b.disbanded_year IS NULL ORDER BY v.name, b.name;
+
+- slug: participacao-no-total
+  title: Parte do total
+  difficulty: medio
+  in: [subqueries/Scalar]
+  statement: |
+    Para cada show, retorne o `id` e a participação de seu preço na soma dos preços de todos os shows, em porcentagem, arredondada para 2 casas. Ordene por `id`.
+  ordered: true
+  solution: |
+    SELECT id, ROUND(ticket_price * 100.0 / (SELECT SUM(ticket_price) FROM shows), 2) AS pct
+    FROM shows
+    ORDER BY id;
+  hints:
+    - O denominador é um único valor, igual para todas as linhas.
+  explanation: |
+    Em bancos com divisão inteira, usar `100.0` evita que o resultado seja truncado. Uma subconsulta escalar é um bom jeito de calcular o total.
+  traps:
+    - reason: Fração em vez de porcentagem
+      sql: SELECT id, ROUND(ticket_price / (SELECT SUM(ticket_price) FROM shows), 2) FROM shows ORDER BY id;
+
+- slug: mais-caro-de-todos
+  title: O show mais caro, com empates
+  difficulty: facil
+  in: [subqueries/Scalar]
+  statement: |
+    Liste `id` e `ticket_price` dos shows com o maior preço, incluindo empates. Ordene por `id`.
+  ordered: true
+  solution: |
+    SELECT id, ticket_price
+    FROM shows
+    WHERE ticket_price = (SELECT MAX(ticket_price) FROM shows)
+    ORDER BY id;
+  hints:
+    - Primeiro descubra o maior preço. Depois filtre por ele.
+  explanation: |
+    `ORDER BY ... LIMIT 1` cortaria empates. Filtrar pelo valor máximo mantém todos.
+  traps:
+    - reason: LIMIT corta empates
+      sql: SELECT id, ticket_price FROM shows ORDER BY ticket_price DESC, id LIMIT 1;
+    - reason: O menor preço
+      sql: SELECT id, ticket_price FROM shows WHERE ticket_price = (SELECT MIN(ticket_price) FROM shows) ORDER BY id;
+
+- slug: nunca-tocaram
+  title: Nunca tocaram
+  difficulty: medio
+  in: [subqueries/Column]
+  statement: |
+    Liste `name` das bandas fora da lista de bandas com show, em ordem alfabética. Use `NOT IN` com uma subconsulta.
+  ordered: true
+  must_use: [NOT IN]
+  solution: |
+    SELECT name
+    FROM bands
+    WHERE id NOT IN (SELECT band_id FROM shows)
+    ORDER BY name;
+  hints:
+    - A subconsulta devolve uma coluna, com uma lista de ids.
+  explanation: |
+    NOT IN tem uma armadilha. Se a subconsulta devolver um NULL, nada será retornado. Aqui `band_id` é obrigatório, mas em colunas opcionais prefira NOT EXISTS.
+  traps:
+    - reason: IN traz quem tem show
+      sql: SELECT name FROM bands WHERE id IN (SELECT band_id FROM shows) ORDER BY name;
+
+- slug: armadilha-do-not-in
+  title: A armadilha do NOT IN
+  difficulty: dificil
+  in: [subqueries/Column]
+  statement: |
+    `merch.band_id` pode ser nulo. Esta consulta não retorna nenhuma banda:
+
+    `SELECT name FROM bands WHERE id NOT IN (SELECT band_id FROM merch)`
+
+    Corrija. Liste `name` das bandas sem nenhum produto, em ordem alfabética, ainda usando `NOT IN`.
+  ordered: true
+  must_use: [NOT IN]
+  solution: |
+    SELECT name
+    FROM bands
+    WHERE id NOT IN (
+      SELECT band_id
+      FROM merch
+      WHERE band_id IS NOT NULL
+    )
+    ORDER BY name;
+  hints:
+    - Compare `5 NOT IN (1, NULL)`. O resultado é desconhecido, não verdadeiro.
+  explanation: |
+    `x NOT IN (a, NULL)` equivale a `x <> a AND x <> NULL`, e a segunda parte nunca é verdadeira. Filtrar os nulos ou usar NOT EXISTS resolve.
+  traps:
+    - reason: O NULL da lista elimina tudo
+      sql: SELECT name FROM bands WHERE id NOT IN (SELECT band_id FROM merch) ORDER BY name;
+
+- slug: mesma-cidade-e-capacidade
+  title: A maior casa em cada cidade
+  difficulty: medio
+  in: [subqueries/Row]
+  statement: |
+    Liste `name`, `city` e `capacity` da casa com maior capacidade em cada cidade. Use uma comparação de linha com `IN`. Ordene por cidade.
+  ordered: true
+  solution: |
+    SELECT name, city, capacity
+    FROM venues
+    WHERE (city, capacity) IN (
+      SELECT city, MAX(capacity)
+      FROM venues
+      GROUP BY city
+    )
+    ORDER BY city;
+  hints:
+    - A subconsulta devolve pares de cidade e capacidade.
+  explanation: |
+    Essa técnica recupera a linha inteira de quem tem o valor máximo em cada grupo. MAX com GROUP BY sozinho não traria o nome de forma confiável.
+  traps:
+    - reason: Compara só a capacidade
+      sql: SELECT name, city, capacity FROM venues WHERE capacity IN (SELECT MIN(capacity) FROM venues GROUP BY city) ORDER BY city;
+
+- slug: top-dois-por-receita
+  title: As duas maiores receitas
+  difficulty: dificil
+  in: [subqueries/Table]
+  statement: |
+    Calcule a receita paga de cada show em uma subconsulta no `FROM`. Depois, retorne o nome da banda, a data e a receita dos 2 shows com maior receita. Em empate, vem primeiro o menor `id` do show.
+  ordered: true
+  solution: |
+    SELECT b.name, r.show_date, r.receita
+    FROM (
+      SELECT s.id, s.band_id, s.show_date, SUM(t.quantity * s.ticket_price) AS receita
+      FROM shows s
+      JOIN tickets t ON t.show_id = s.id
+      WHERE t.status = 'pago'
+      GROUP BY s.id
+    ) r
+    JOIN bands b ON b.id = r.band_id
+    ORDER BY r.receita DESC, r.id
+    LIMIT 2;
+  hints:
+    - A subconsulta no FROM deixa o JOIN com bands mais simples.
+  explanation: |
+    Isolar a agregação em uma subconsulta separa as etapas e evita colocar colunas extras no GROUP BY.
+  traps:
+    - reason: Os dois menores
+      sql: SELECT b.name, r.show_date, r.receita FROM (SELECT s.id, s.band_id, s.show_date, SUM(t.quantity * s.ticket_price) AS receita FROM shows s JOIN tickets t ON t.show_id = s.id WHERE t.status = 'pago' GROUP BY s.id) r JOIN bands b ON b.id = r.band_id ORDER BY r.receita, r.id LIMIT 2;
+
+- slug: media-das-medias
+  title: A média das médias
+  difficulty: medio
+  in: [subqueries/Table]
+  statement: |
+    Calcule o preço médio por banda em uma subconsulta. Em seguida, retorne a média dessas médias, arredondada para 2 casas.
+  ordered: false
+  solution: |
+    SELECT ROUND(AVG(media), 2) AS media_geral
+    FROM (
+      SELECT band_id, AVG(ticket_price) AS media
+      FROM shows
+      GROUP BY band_id
+    ) m;
+  hints:
+    - Agregações não podem ser aninhadas direto, mas subconsultas podem.
+  explanation: |
+    A média das médias dá o mesmo peso a cada banda. A média direta dá mais peso a quem tem mais shows, e por isso os dois números diferem.
+  traps:
+    - reason: Média direta dá outro peso
+      sql: SELECT ROUND(AVG(ticket_price), 2) FROM shows;
+
+- slug: bandas-com-compra-paga
+  title: Três camadas de pergunta
+  difficulty: medio
+  in: [subqueries/Nested Subqueries]
+  statement: |
+    Sem `JOIN`, liste `name` das bandas com ao menos um show que tenha pedido pago. Ordene por `name`.
+  ordered: true
+  forbid: [JOIN]
+  solution: |
+    SELECT name
+    FROM bands
+    WHERE id IN (
+      SELECT band_id
+      FROM shows
+      WHERE id IN (
+        SELECT show_id
+        FROM tickets
+        WHERE status = 'pago'
+      )
+    )
+    ORDER BY name;
+  hints:
+    - A pergunta mais interna é sobre pedidos pagos.
+  explanation: |
+    Subconsultas aninhadas leem de dentro para fora. Depois de duas camadas, CTEs ou JOINs costumam ser mais legíveis.
+  traps:
+    - reason: Sem filtrar os pedidos pagos
+      sql: SELECT name FROM bands WHERE id IN (SELECT band_id FROM shows WHERE id IN (SELECT show_id FROM tickets)) ORDER BY name;
+
+- slug: acima-da-media-de-receita
+  title: Acima da média das receitas
+  difficulty: dificil
+  in: [subqueries/Nested Subqueries]
+  statement: |
+    Liste o `id` dos shows cuja receita paga está acima da média das receitas pagas por show. Considere só shows com venda paga. Ordene por `id`.
+  ordered: true
+  solution: |
+    SELECT s.id
+    FROM shows s
+    JOIN tickets t ON t.show_id = s.id
+    WHERE t.status = 'pago'
+    GROUP BY s.id
+    HAVING SUM(t.quantity * s.ticket_price) > (
+      SELECT AVG(receita)
+      FROM (
+        SELECT SUM(t2.quantity * s2.ticket_price) AS receita
+        FROM shows s2
+        JOIN tickets t2 ON t2.show_id = s2.id
+        WHERE t2.status = 'pago'
+        GROUP BY s2.id
+      ) r
+    )
+    ORDER BY s.id;
+  hints:
+    - Uma subconsulta dentro de outra calcula a média das somas.
+  explanation: |
+    HAVING compara cada grupo com um valor único. Esta query mostra o limite da legibilidade das subconsultas, e uma CTE evitaria repetir o cálculo.
+  traps:
+    - reason: Compara com a média dos pedidos
+      sql: SELECT s.id FROM shows s JOIN tickets t ON t.show_id = s.id WHERE t.status = 'pago' GROUP BY s.id HAVING SUM(t.quantity * s.ticket_price) > (SELECT AVG(t2.quantity * s2.ticket_price) FROM shows s2 JOIN tickets t2 ON t2.show_id = s2.id WHERE t2.status = 'pago') ORDER BY s.id;
+
+- slug: tem-pedido-pago
+  title: Shows com algum pedido pago
+  difficulty: facil
+  in: [subqueries/Correlated Subqueries]
+  statement: |
+    Liste `id` dos shows com pelo menos um pedido pago, usando `EXISTS`. Ordene por `id`.
+  ordered: true
+  must_use: [EXISTS]
+  solution: |
+    SELECT s.id
+    FROM shows s
+    WHERE EXISTS (
+      SELECT 1
+      FROM tickets t
+      WHERE t.show_id = s.id AND t.status = 'pago'
+    )
+    ORDER BY s.id;
+  hints:
+    - EXISTS só quer saber se existe alguma linha. O que ela contém não importa.
+  explanation: |
+    EXISTS para na primeira linha encontrada, e pode ser mais eficiente do que contar. Por isso, `SELECT 1` é a forma usual.
+  traps:
+    - reason: Sem a ligação com o show de fora
+      sql: SELECT s.id FROM shows s WHERE EXISTS (SELECT 1 FROM tickets t WHERE t.status = 'pago') ORDER BY s.id;
+
+- slug: sem-nenhum-pedido
+  title: Shows sem nenhum pedido
+  difficulty: medio
+  in: [subqueries/Correlated Subqueries]
+  statement: |
+    Liste `id` dos shows sem nenhum pedido, usando `NOT EXISTS`. Ordene por `id`.
+  ordered: true
+  must_use: [NOT EXISTS]
+  solution: |
+    SELECT s.id
+    FROM shows s
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM tickets t
+      WHERE t.show_id = s.id
+    )
+    ORDER BY s.id;
+  hints:
+    - NOT EXISTS não tem o problema de NULL do NOT IN.
+  explanation: |
+    NOT EXISTS é a forma mais segura de escrever um anti-join, porque não é afetado por NULL.
+  traps:
+    - reason: Sem correlação não retorna nada
+      sql: SELECT s.id FROM shows s WHERE NOT EXISTS (SELECT 1 FROM tickets t) ORDER BY s.id;
+
+- slug: ultimo-show-da-banda
+  title: O show mais recente de cada banda
+  difficulty: medio
+  in: [subqueries/Correlated Subqueries]
+  statement: |
+    Liste `band_id`, `show_date` e `ticket_price` do show mais recente de cada banda. Em caso de duas datas iguais, todos aparecem. Ordene por `band_id` e depois por `id`.
+  ordered: true
+  solution: |
+    SELECT s.band_id, s.show_date, s.ticket_price
+    FROM shows s
+    WHERE s.show_date = (
+      SELECT MAX(o.show_date)
+      FROM shows o
+      WHERE o.band_id = s.band_id
+    )
+    ORDER BY s.band_id, s.id;
+  hints:
+    - Para cada linha, o máximo é calculado só com os shows daquela banda.
+  explanation: |
+    A referência a `s.band_id` faz a subconsulta rodar para cada linha externa. Esse é o padrão do "maior por grupo".
+  traps:
+    - reason: Data máxima global
+      sql: SELECT s.band_id, s.show_date, s.ticket_price FROM shows s WHERE s.show_date = (SELECT MAX(o.show_date) FROM shows o) ORDER BY s.band_id, s.id;
+
+- slug: total-na-lista
+  title: Contagem em cada linha
+  difficulty: medio
+  in: [subqueries/Correlated Subqueries]
+  statement: |
+    Retorne `name` de cada banda e, com uma subconsulta correlacionada no `SELECT`, quantos músicos ela tem em `members`. Ordene pelo nome.
+  ordered: true
+  must_use: ['(SELECT']
+  solution: |
+    SELECT b.name, (SELECT COUNT(*) FROM members m WHERE m.band_id = b.id) AS musicos
+    FROM bands b
+    ORDER BY b.name;
+  hints:
+    - COUNT em subconsulta dá 0 quando não há linhas.
+  explanation: |
+    Esta forma é legível e já retorna 0, sem precisar de LEFT JOIN. Em tabelas grandes, vale comparar com a versão usando JOIN no plano de execução.
+  traps:
+    - reason: Sem correlação conta todos
+      sql: SELECT b.name, (SELECT COUNT(*) FROM members m) AS musicos FROM bands b ORDER BY b.name;

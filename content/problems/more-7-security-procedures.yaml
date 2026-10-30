@@ -1,0 +1,366 @@
+- slug: gatilho-de-estoque
+  title: Estoque nunca negativo
+  difficulty: dificil
+  in: [data-integrity-security/Data Integrity Constraints]
+  statement: |
+    Crie o trigger `trg_estoque` que aborta qualquer `UPDATE` em `merch` que deixaria `stock` negativo.
+
+    No SQLite, a estrutura é `CREATE TRIGGER nome BEFORE UPDATE ON tabela WHEN condicao BEGIN SELECT RAISE(ABORT, 'mensagem'); END;`.
+  ordered: true
+  must_use: [CREATE TRIGGER]
+  check: SELECT name FROM sqlite_master WHERE type = 'trigger';
+  accepts:
+    - UPDATE merch SET stock = 1 WHERE id = (SELECT MIN(id) FROM merch);
+  rejects:
+    - UPDATE merch SET stock = -1 WHERE id = (SELECT MIN(id) FROM merch);
+  solution: |
+    CREATE TRIGGER trg_estoque
+    BEFORE UPDATE ON merch
+    WHEN NEW.stock < 0
+    BEGIN
+      SELECT RAISE(ABORT, 'Estoque negativo');
+    END;
+  hints:
+    - Dentro de um trigger, NEW representa a linha com os novos valores.
+  explanation: |
+    Triggers impõem regras que CHECK não alcança, como as que olham outras tabelas. Aqui um CHECK bastaria, e seria mais simples. Use triggers com moderação, porque a lógica fica escondida.
+  traps:
+    - reason: Regra invertida
+      sql: CREATE TRIGGER trg_estoque BEFORE UPDATE ON merch WHEN NEW.stock > 0 BEGIN SELECT RAISE(ABORT, 'x'); END;
+
+- slug: auditoria-de-pedidos
+  title: Auditoria de dados incoerentes
+  difficulty: medio
+  in: [data-integrity-security/Data Integrity Constraints]
+  statement: |
+    Sem restrição, regras de negócio acabam quebradas nos dados. Audite o seguinte: liste `id` dos pedidos pagos com `quantity` maior que 2, para o antifraude revisar. Ordene por `id`.
+  ordered: true
+  solution: |
+    SELECT id
+    FROM tickets
+    WHERE status = 'pago' AND quantity > 2
+    ORDER BY id;
+  hints:
+    - Uma auditoria é uma consulta que procura o que não deveria existir.
+  explanation: |
+    Mesmo com restrições, consultas de auditoria são úteis para regras suaves, que precisam de revisão humana.
+  traps:
+    - reason: Inclui não pagos
+      sql: SELECT id FROM tickets WHERE quantity > 2 ORDER BY id;
+    - reason: Inclui exatamente 2
+      sql: SELECT id FROM tickets WHERE status = 'pago' AND quantity >= 2 ORDER BY id;
+
+- slug: fk-ou-aplicacao
+  title: Por que manter a chave estrangeira?
+  difficulty: facil
+  in: [data-integrity-security/Data Integrity Constraints]
+  statement: |
+    Alguém sugere remover as chaves estrangeiras para deixar as inserções mais rápidas, deixando a aplicação conferir os ids. Qual é o maior risco?
+  options:
+    - text: Dados órfãos, porque qualquer bug ou script escapa da conferência
+      why: Certo. A regra deixa de valer para quem não passa pela aplicação.
+    - text: O banco deixa de aceitar JOIN
+      why: JOIN não depende da existência da chave estrangeira.
+    - text: As consultas passam a retornar erros
+      why: As consultas funcionam, mas sobre dados possivelmente errados.
+    - text: As tabelas perdem a chave primária
+      why: Chave primária e estrangeira são restrições independentes.
+  answer: 0
+  hints: []
+  explanation: |
+    O custo de uma chave estrangeira costuma ser pequeno perto do custo de corrigir dados corrompidos. Em cargas massivas, ela pode ser desligada de forma controlada.
+  traps: []
+
+- slug: permissao-so-de-coluna
+  title: Acesso a poucas colunas
+  difficulty: medio
+  in: [data-integrity-security/GRANT and Revoke]
+  statement: |
+    No PostgreSQL, o atendimento precisa ler nome e veículo dos jornalistas, mas não e-mail nem telefone. Qual é o comando?
+  options:
+    - text: "GRANT SELECT (full_name, outlet) ON press_contacts TO atendimento;"
+      why: Certo. PostgreSQL permite conceder permissão por coluna.
+    - text: "GRANT SELECT ON press_contacts TO atendimento;"
+      why: Essa permissão vale para a tabela inteira, incluindo dados pessoais.
+    - text: "GRANT UPDATE (full_name, outlet) ON press_contacts TO atendimento;"
+      why: UPDATE permite alterar, e o pedido era só ler.
+    - text: "REVOKE SELECT (email, phone) ON press_contacts FROM atendimento;"
+      why: Sozinho, esse comando não concede nada.
+  answer: 0
+  hints: []
+  explanation: |
+    Permissões por coluna ou uma view limitada resolvem o mesmo problema. A view também pode esconder linhas, e não só colunas.
+  traps: []
+
+- slug: papeis-em-vez-de-pessoas
+  title: Papéis em vez de pessoas
+  difficulty: medio
+  in: [data-integrity-security/GRANT and Revoke]
+  statement: |
+    A equipe de análise tem 12 pessoas, e o grupo muda todo mês. Como organizar as permissões?
+  options:
+    - text: Criar um papel analista, conceder permissões a ele e adicionar as pessoas ao papel
+      why: Certo. Mudar o grupo não exige repetir os GRANTs.
+    - text: Fazer GRANT direto para cada pessoa, a cada mudança
+      why: Funciona, mas é trabalhoso e deixa permissões esquecidas para trás.
+    - text: Compartilhar um único usuário e senha entre todos
+      why: Impede saber quem fez o quê, e a senha precisa mudar a cada saída.
+    - text: Dar acesso de administrador, para evitar pedidos
+      why: Viola o menor privilégio e amplia o dano de qualquer erro.
+  answer: 0
+  hints: []
+  explanation: |
+    Papéis tornam permissões auditáveis e fáceis de revogar. Quando alguém sai, basta remover a pessoa do papel.
+  traps: []
+
+- slug: revoke-ao-sair
+  title: Quando alguém sai do projeto
+  difficulty: facil
+  in: [data-integrity-security/GRANT and Revoke]
+  statement: |
+    A conta `estagio` tinha permissão para ler `shows` e não precisa mais dela. Qual é o comando correto no PostgreSQL?
+  options:
+    - text: "REVOKE SELECT ON shows FROM estagio;"
+      why: Certo. REVOKE retira a permissão, e a sintaxe usa FROM.
+    - text: "GRANT NOT SELECT ON shows TO estagio;"
+      why: Essa sintaxe não existe.
+    - text: "DELETE PERMISSION estagio FROM shows;"
+      why: DELETE trabalha com linhas de tabelas, não com permissões.
+    - text: "DROP TABLE shows;"
+      why: Apagaria os dados de todo mundo.
+  answer: 0
+  hints: []
+  explanation: |
+    Note que GRANT usa TO e REVOKE usa FROM. Revisar permissões periodicamente é parte da segurança, porque acessos antigos costumam ficar para trás.
+  traps: []
+
+- slug: senhas-no-banco
+  title: Como guardar senhas
+  difficulty: medio
+  in: [data-integrity-security/DB Security Best Practices]
+  statement: |
+    O sistema de credenciamento guarda senhas de usuários. Qual é a forma correta?
+  options:
+    - text: Um hash lento e com sal, como bcrypt ou Argon2
+      why: Certo. Não dá para reverter, e o custo atrapalha ataques por tentativa.
+    - text: Texto puro, em uma coluna com permissões restritas
+      why: Um vazamento expõe todas as senhas de uma vez.
+    - text: Criptografia reversível, com a chave guardada na aplicação
+      why: Quem obtiver a chave recupera todas as senhas. Senhas só precisam ser verificadas.
+    - text: MD5 sem sal
+      why: MD5 é rápido demais, e tabelas prontas quebram esses hashes.
+  answer: 0
+  hints: []
+  explanation: |
+    Senha não é para ser lida, só conferida. Por isso, guarda-se um hash, com sal para que senhas iguais não gerem o mesmo valor.
+  traps: []
+
+- slug: backup-testado
+  title: O backup que nunca foi testado
+  difficulty: facil
+  in: [data-integrity-security/DB Security Best Practices]
+  statement: |
+    O banco faz backup toda noite, mas ninguém nunca restaurou um. Qual é o problema?
+  options:
+    - text: Não se sabe se a restauração funciona nem quanto tempo leva
+      why: Certo. Um backup só tem valor se puder ser restaurado.
+    - text: Backups precisam rodar a cada minuto
+      why: A frequência depende de quanto dado se pode perder, e não é esse o problema aqui.
+    - text: Backups apagam dados antigos da produção
+      why: Backups copiam. Eles não apagam dados.
+    - text: Não há problema, porque o backup é automático
+      why: Automático não garante que os arquivos estejam íntegros.
+  answer: 0
+  hints: []
+  explanation: |
+    Teste restaurações regularmente, em um ambiente separado. Guarde cópias em outro local, porque um ataque ou falha pode atingir o servidor e os backups juntos.
+  traps: []
+
+- slug: dados-pessoais
+  title: Dados pessoais em ambiente de teste
+  difficulty: medio
+  in: [data-integrity-security/DB Security Best Practices]
+  statement: |
+    A equipe quer copiar o banco de produção, com e-mails e telefones de jornalistas, para testes. Qual é a prática recomendada?
+  options:
+    - text: Mascarar ou gerar dados fictícios antes de usar fora da produção
+      why: Certo. Assim, o ambiente de teste não vira uma cópia menos protegida de dados pessoais.
+    - text: Copiar tudo, porque testes precisam de dados reais
+      why: Ambientes de teste costumam ter proteção menor, e isso aumenta o risco e pode violar a LGPD.
+    - text: Copiar tudo e apagar depois de um ano
+      why: O risco existe durante todo esse período.
+    - text: Trocar só o nome da tabela
+      why: Os dados pessoais continuariam expostos.
+  answer: 0
+  hints: []
+  explanation: |
+    A LGPD exige cuidado com dados pessoais. Para testes, mantenha o formato e as características dos dados, sem expor as pessoas reais.
+  traps: []
+
+- slug: parametros-na-pratica
+  title: O que faz a consulta parametrizada
+  difficulty: medio
+  in: [data-integrity-security/DB Security Best Practices]
+  statement: |
+    A aplicação executa `SELECT * FROM bands WHERE name = ?`, enviando o texto digitado como parâmetro. Alguém digita `' OR 1=1 --`. O que acontece?
+  options:
+    - text: A busca procura uma banda com aquele nome literal e não encontra nada
+      why: Certo. O valor nunca é interpretado como parte do comando.
+    - text: A consulta devolve todas as bandas
+      why: Isso aconteceria se o texto fosse concatenado na consulta.
+    - text: O banco recusa textos com aspas
+      why: Aspas são válidas em valores, como em nomes próprios.
+    - text: A tabela é apagada
+      why: O parâmetro não é executado como comando.
+  answer: 0
+  hints: []
+  explanation: |
+    Com parâmetros, o banco recebe o comando e os valores separadamente. Essa separação é o que elimina a injeção, sem precisar tratar caracteres à mão.
+  traps: []
+
+- slug: quando-usar-procedure
+  title: Quando vale usar procedure
+  difficulty: medio
+  in: [stored-procedures]
+  statement: |
+    Qual cenário favorece colocar a lógica em uma stored procedure, em vez de na aplicação?
+  options:
+    - text: Várias aplicações em linguagens diferentes precisam da mesma operação com muitas consultas
+      why: Certo. A regra fica centralizada, e as idas e voltas pela rede diminuem.
+    - text: Formatar uma data para exibir na tela
+      why: Formatação é responsabilidade da interface.
+    - text: Enviar um e-mail de confirmação
+      why: Efeitos externos ficam melhor fora do banco, que não deveria depender de serviços externos.
+    - text: Uma regra que muda toda semana e precisa de testes unitários frequentes
+      why: Esse tipo de lógica é mais fácil de manter na aplicação.
+  answer: 0
+  hints: []
+  explanation: |
+    Procedures brilham quando a lógica é próxima dos dados e compartilhada. O custo é manter mais uma camada, com versionamento e testes menos naturais.
+  traps: []
+
+- slug: chamada-de-procedure
+  title: Como se chama cada uma
+  difficulty: facil
+  in: [stored-procedures]
+  statement: |
+    No PostgreSQL, existe a função `preco_com_taxa(valor)` e a procedure `encerrar_vendas(id)`. Qual é a forma correta de usar cada uma?
+  options:
+    - text: "SELECT preco_com_taxa(100); e CALL encerrar_vendas(1);"
+      why: Certo. Funções entram em expressões, e procedures são chamadas com CALL.
+    - text: "CALL preco_com_taxa(100); e SELECT encerrar_vendas(1);"
+      why: Está invertido.
+    - text: "EXEC preco_com_taxa(100); e RUN encerrar_vendas(1);"
+      why: EXEC é do SQL Server, e RUN não é SQL padrão.
+    - text: "SELECT * FROM encerrar_vendas; e SELECT preco_com_taxa;"
+      why: Procedures não são tabelas, e funções precisam dos parênteses.
+  answer: 0
+  hints: []
+  explanation: |
+    A sintaxe varia conforme o banco. A diferença conceitual se mantém: funções calculam e devolvem valores, enquanto procedures executam operações.
+  traps: []
+
+- slug: parametros-in-out
+  title: Parâmetro de saída
+  difficulty: medio
+  in: [stored-procedures]
+  statement: |
+    Uma procedure precisa receber o id de um show e devolver o total vendido. Em bancos como MySQL e SQL Server, qual recurso atende a isso?
+  options:
+    - text: Um parâmetro de entrada para o id e um de saída para o total
+      why: Certo. Parâmetros OUT devolvem valores a quem chamou.
+    - text: Uma variável global visível para toda a aplicação
+      why: Isso cria acoplamento e problemas em chamadas simultâneas.
+    - text: Uma tabela nova criada a cada chamada
+      why: É caro e desnecessário.
+    - text: Um comentário no corpo da procedure
+      why: Comentários não devolvem valores.
+  answer: 0
+  hints: []
+  explanation: |
+    Parâmetros IN recebem, OUT devolvem e INOUT fazem os dois. Se o objetivo é só calcular um valor, uma função costuma ser mais simples.
+  traps: []
+
+- slug: procedure-no-git
+  title: Procedure fora do repositório
+  difficulty: medio
+  in: [stored-procedures]
+  statement: |
+    As procedures de um sistema só existem no banco de produção, e são editadas diretamente lá. Qual é o maior problema?
+  options:
+    - text: Não há histórico nem revisão, e os ambientes podem divergir sem ninguém saber
+      why: Certo. O ideal é mantê-las em arquivos de migração versionados.
+    - text: Procedures não podem ser editadas
+      why: Podem, e esse é justamente o risco.
+    - text: Elas ficam mais lentas por estarem no banco
+      why: A localização não as torna lentas.
+    - text: Elas deixam de funcionar sem Git
+      why: O banco não depende de um repositório.
+  answer: 0
+  hints: []
+  explanation: |
+    Trate código do banco como qualquer outro código, com versionamento, revisão e testes. Ferramentas de migração ajudam nesse fluxo.
+  traps: []
+
+- slug: procedure-e-seguranca
+  title: Procedure como barreira
+  difficulty: dificil
+  in: [stored-procedures]
+  statement: |
+    O sistema de atendimento só deve conseguir cancelar pedidos seguindo a regra de negócio, sem fazer UPDATE livre em `tickets`. Como uma procedure pode ajudar no PostgreSQL?
+  options:
+    - text: Dar permissão só de execução na procedure, criada com SECURITY DEFINER, sem UPDATE direto na tabela
+      why: Certo. A conta só altera dados pelo caminho aprovado.
+    - text: Dar UPDATE na tabela e pedir para usar a procedure
+      why: Nada impediria um UPDATE direto.
+    - text: Colocar a senha do banco dentro da procedure
+      why: Senhas não devem ficar no código, e isso não restringe nada.
+    - text: Procedures não têm relação com permissões
+      why: Elas podem ser uma camada de controle de acesso.
+  answer: 0
+  hints: []
+  explanation: |
+    SECURITY DEFINER executa com as permissões de quem criou a procedure. É poderoso, por isso exige cuidado com o caminho de busca e com a validação das entradas.
+  traps: []
+
+- slug: trigger-ou-procedure
+  title: Trigger ou procedure?
+  difficulty: medio
+  in: [stored-procedures]
+  statement: |
+    Qual é a principal diferença entre um trigger e uma stored procedure?
+  options:
+    - text: O trigger dispara sozinho em um evento da tabela, e a procedure precisa ser chamada
+      why: Certo. Essa execução automática é útil, mas também pode esconder comportamentos.
+    - text: Trigger só pode fazer SELECT
+      why: Triggers podem alterar dados.
+    - text: Procedure não pode usar SQL
+      why: Procedures são feitas principalmente de SQL.
+    - text: Não há diferença, são dois nomes para a mesma coisa
+      why: A forma de execução é bem diferente.
+  answer: 0
+  hints: []
+  explanation: |
+    Use triggers para garantias que devem valer sempre, como auditoria. Evite encadear triggers, porque fica muito difícil entender o que uma simples escrita provoca.
+  traps: []
+
+- slug: funcao-pura
+  title: Função sem efeito colateral
+  difficulty: medio
+  in: [stored-procedures]
+  statement: |
+    Uma função usada em `SELECT` também insere uma linha de log a cada chamada. Por que isso é arriscado?
+  options:
+    - text: A quantidade de chamadas depende do plano de execução, então os logs ficam imprevisíveis
+      why: Certo. O otimizador pode chamar a função mais ou menos vezes do que parece.
+    - text: Funções só podem retornar números
+      why: Funções retornam vários tipos.
+    - text: SELECT apaga os dados inseridos
+      why: SELECT não desfaz inserções.
+    - text: Não há risco nenhum
+      why: Efeitos colaterais em consultas causam resultados difíceis de explicar.
+  answer: 0
+  hints: []
+  explanation: |
+    Mantenha funções sem efeitos colaterais, quando possível. No PostgreSQL, marcá-las como IMMUTABLE ou STABLE ajuda o otimizador, mas exige que a marcação seja verdadeira.
+  traps: []

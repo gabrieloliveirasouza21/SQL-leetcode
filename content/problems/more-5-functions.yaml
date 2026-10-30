@@ -1,0 +1,521 @@
+- slug: faixas-de-50
+  title: Faixas de 50 em 50
+  difficulty: medio
+  in: [advanced-functions/FLOOR]
+  statement: |
+    Agrupe os shows em faixas de preço de 50 em 50, sendo que o início da faixa é o maior múltiplo de 50 menor ou igual ao preço. Retorne o início da faixa e a quantidade de shows, por início da faixa.
+  ordered: true
+  solution: |
+    SELECT FLOOR(ticket_price / 50) * 50 AS faixa, COUNT(*) AS total
+    FROM shows
+    GROUP BY faixa
+    ORDER BY faixa;
+  hints:
+    - Dividir, arredondar para baixo e multiplicar leva o valor ao múltiplo anterior.
+  explanation: |
+    Esse truque cria histogramas sem nenhuma tabela auxiliar. Basta trocar 50 para mudar o tamanho das faixas.
+  traps:
+    - reason: ROUND leva ao múltiplo mais próximo
+      sql: SELECT ROUND(ticket_price / 50) * 50 AS faixa, COUNT(*) FROM shows GROUP BY faixa ORDER BY faixa;
+    - reason: CEILING sobe para o próximo
+      sql: SELECT CEILING(ticket_price / 50) * 50 AS faixa, COUNT(*) FROM shows GROUP BY faixa ORDER BY faixa;
+
+- slug: distancia-do-preco-medio
+  title: Quanto foge da meta
+  difficulty: facil
+  in: [advanced-functions/ABS]
+  statement: |
+    A meta é um ingresso de 100. Retorne `id` e a distância do preço até a meta, sempre positiva. Ordene pela distância, da menor para a maior, e depois por `id`.
+  ordered: true
+  solution: |
+    SELECT id, ABS(ticket_price - 100) AS distancia
+    FROM shows
+    ORDER BY distancia, id;
+  hints:
+    - ABS descarta o sinal.
+  explanation: |
+    ABS é útil em comparações de proximidade, como encontrar o valor mais perto de uma meta.
+  traps:
+    - reason: Mantém o sinal
+      sql: SELECT id, ticket_price - 100 AS distancia FROM shows ORDER BY distancia, id;
+
+- slug: pedidos-pares
+  title: Sorteio dos pedidos pares
+  difficulty: facil
+  in: [advanced-functions/MOD]
+  statement: |
+    O sorteio premia pedidos de `id` par. Liste `id` e `buyer` desses pedidos, por `id`.
+  ordered: true
+  solution: |
+    SELECT id, buyer
+    FROM tickets
+    WHERE id % 2 = 0
+    ORDER BY id;
+  hints:
+    - Um número par deixa resto 0 na divisão por 2.
+  explanation: |
+    Módulo é usado em amostragens simples e em distribuição de registros. Atenção: em bancos diferentes, o sinal do resultado com números negativos pode mudar.
+  traps:
+    - reason: Os ímpares
+      sql: SELECT id, buyer FROM tickets WHERE id % 2 = 1 ORDER BY id;
+
+- slug: media-arredondada-por-pais
+  title: Preço médio por país
+  difficulty: medio
+  in: [advanced-functions/ROUND]
+  statement: |
+    Para cada `country` com show, retorne o preço médio arredondado para 1 casa. Ordene pela média decrescente e depois pelo país.
+  ordered: true
+  solution: |
+    SELECT b.country, ROUND(AVG(s.ticket_price), 1) AS media
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id
+    GROUP BY b.country
+    ORDER BY media DESC, b.country;
+  hints:
+    - O segundo argumento de ROUND é o número de casas.
+  explanation: |
+    Arredonde no fim do cálculo. Arredondar cada preço antes da média acumula erro.
+  traps:
+    - reason: Duas casas
+      sql: SELECT b.country, ROUND(AVG(s.ticket_price), 2) AS media FROM shows s JOIN bands b ON b.id = s.band_id GROUP BY b.country ORDER BY media DESC, b.country;
+    - reason: Sem arredondar
+      sql: SELECT b.country, AVG(s.ticket_price) AS media FROM shows s JOIN bands b ON b.id = s.band_id GROUP BY b.country ORDER BY media DESC, b.country;
+
+- slug: caixas-necessarias
+  title: Quantas caixas pedir
+  difficulty: medio
+  in: [advanced-functions/CEILING]
+  statement: |
+    Para repor até 50 unidades, retorne `item` e quantas caixas de 12 pedir para os produtos com menos de 50 em estoque. Sempre se pede caixa inteira, e ninguém fica abaixo de 50. Ordene por `item`.
+
+    Divida por `12.0`, porque a divisão entre inteiros descartaria a parte decimal.
+  ordered: true
+  solution: |
+    SELECT item, CEILING((50 - stock) / 12.0) AS caixas
+    FROM merch
+    WHERE stock < 50
+    ORDER BY item;
+  hints:
+    - Se faltam 13 unidades, uma caixa não basta.
+  explanation: |
+    CEILING é o certo quando uma fração ainda exige uma unidade inteira, como caixas, ônibus ou páginas. Divisão inteira aqui daria um resultado errado sem nenhum aviso.
+  traps:
+    - reason: Divisão inteira descarta a fração
+      sql: SELECT item, CEILING((50 - stock) / 12) AS caixas FROM merch WHERE stock < 50 ORDER BY item;
+    - reason: FLOOR deixa estoque abaixo de 50
+      sql: SELECT item, FLOOR((50 - stock) / 12.0) AS caixas FROM merch WHERE stock < 50 ORDER BY item;
+
+- slug: banda-e-cidade
+  title: Texto para o cartaz
+  difficulty: facil
+  in: [advanced-functions/CONCAT]
+  statement: |
+    Para cada show, monte o texto `BANDA em CIDADE`, com o nome da banda e a cidade da casa, como em `Iron Tide em São Paulo`. Retorne o texto, ordenado alfabeticamente.
+  ordered: true
+  solution: |
+    SELECT CONCAT(b.name, ' em ', v.city) AS cartaz
+    FROM shows s
+    JOIN bands b ON b.id = s.band_id
+    JOIN venues v ON v.id = s.venue_id
+    ORDER BY cartaz;
+  hints:
+    - Texto fixo vai entre aspas simples, com os espaços incluídos.
+  explanation: |
+    CONCAT aceita colunas e textos fixos. Espaços também são caracteres, e esquecê-los é o erro mais comum.
+  traps:
+    - reason: Sem os espaços
+      sql: SELECT CONCAT(b.name, 'em', v.city) AS cartaz FROM shows s JOIN bands b ON b.id = s.band_id JOIN venues v ON v.id = s.venue_id ORDER BY cartaz;
+
+- slug: concat-com-nulo
+  title: CONCAT e os nulos
+  difficulty: medio
+  in: [advanced-functions/CONCAT]
+  statement: |
+    Para cada contato, retorne o texto com `full_name`, um espaço e `outlet`, em ordem de `id`. Com `outlet` nulo, o texto deve continuar aparecendo, só com o nome e o espaço.
+  ordered: true
+  solution: |
+    SELECT CONCAT(full_name, ' ', outlet) AS etiqueta
+    FROM press_contacts
+    ORDER BY id;
+  hints:
+    - Compare CONCAT com o operador ||.
+  explanation: |
+    Com `||`, um NULL deixa o resultado inteiro nulo. CONCAT trata NULL como texto vazio. Essa diferença é uma das razões para escolher um ou outro.
+  traps:
+    - reason: O operador || vira NULL
+      sql: SELECT full_name || ' ' || outlet FROM press_contacts ORDER BY id;
+
+- slug: nomes-longos
+  title: Nomes grandes demais para a arte
+  difficulty: facil
+  in: [advanced-functions/LENGTH]
+  statement: |
+    A arte do cartaz só comporta 12 caracteres. Liste `name` e o tamanho do nome das bandas com mais de 12 caracteres, por tamanho decrescente e depois por nome.
+  ordered: true
+  solution: |
+    SELECT name, LENGTH(name) AS tamanho
+    FROM bands
+    WHERE LENGTH(name) > 12
+    ORDER BY tamanho DESC, name;
+  hints:
+    - LENGTH conta caracteres em texto.
+  explanation: |
+    LENGTH conta caracteres, inclusive espaços. Em alguns bancos, como o MySQL, LENGTH conta bytes, e acentos contam em dobro.
+  traps:
+    - reason: Inclui exatamente 12
+      sql: SELECT name, LENGTH(name) AS tamanho FROM bands WHERE LENGTH(name) >= 12 ORDER BY tamanho DESC, name;
+    - reason: Sem filtrar
+      sql: SELECT name, LENGTH(name) AS tamanho FROM bands ORDER BY tamanho DESC, name;
+
+- slug: primeiro-nome
+  title: Só o primeiro nome
+  difficulty: medio
+  in: [advanced-functions/SUBSTRING]
+  statement: |
+    Retorne o primeiro nome de cada contato, ou seja, tudo antes do primeiro espaço de `full_name`. Ordene por `id`.
+  ordered: true
+  solution: |
+    SELECT SUBSTR(full_name, 1, INSTR(full_name, ' ') - 1) AS primeiro
+    FROM press_contacts
+    ORDER BY id;
+  hints:
+    - INSTR acha a posição do espaço. Você quer os caracteres antes dela.
+  explanation: |
+    Em SQL, posições em texto começam em 1, não em 0. Em dados reais, trate também nomes sem espaço, que aqui não existem.
+  traps:
+    - reason: Inclui o espaço
+      sql: SELECT SUBSTR(full_name, 1, INSTR(full_name, ' ')) FROM press_contacts ORDER BY id;
+    - reason: Corta um tamanho fixo
+      sql: SELECT SUBSTR(full_name, 1, 4) FROM press_contacts ORDER BY id;
+
+- slug: ano-da-data
+  title: Só o ano
+  difficulty: facil
+  in: [advanced-functions/SUBSTRING]
+  statement: |
+    Liste os anos distintos com shows, usando `SUBSTR` em `show_date`. Ordene do mais antigo para o mais recente.
+  ordered: true
+  must_use: [SUBSTR]
+  solution: |
+    SELECT DISTINCT SUBSTR(show_date, 1, 4) AS ano
+    FROM shows
+    ORDER BY ano;
+  hints:
+    - O ano são os 4 primeiros caracteres.
+  explanation: |
+    Isso só funciona porque o formato é fixo. Em bancos com tipo de data, use as funções próprias.
+  traps:
+    - reason: Sem DISTINCT
+      sql: SELECT SUBSTR(show_date, 1, 4) AS ano FROM shows ORDER BY ano;
+    - reason: Pega o mês
+      sql: SELECT DISTINCT SUBSTR(show_date, 6, 2) AS ano FROM shows ORDER BY ano;
+
+- slug: sem-a-palavra-metal
+  title: Gênero sem a palavra Metal
+  difficulty: facil
+  in: [advanced-functions/REPLACE]
+  statement: |
+    Liste os gêneros distintos, sem o trecho ` Metal`, incluindo o espaço. Assim, `Thrash Metal` vira `Thrash`. Ordene alfabeticamente.
+  ordered: true
+  solution: |
+    SELECT DISTINCT REPLACE(genre, ' Metal', '') AS estilo
+    FROM bands
+    ORDER BY estilo;
+  hints:
+    - O terceiro argumento pode ser um texto vazio.
+  explanation: |
+    REPLACE troca todas as ocorrências do trecho e diferencia maiúsculas no SQLite.
+  traps:
+    - reason: Sobra um espaço no fim
+      sql: SELECT DISTINCT REPLACE(genre, 'Metal', '') AS estilo FROM bands ORDER BY estilo;
+    - reason: Sem DISTINCT
+      sql: SELECT REPLACE(genre, ' Metal', '') AS estilo FROM bands ORDER BY estilo;
+
+- slug: portao-em-maiusculas
+  title: Placas em maiúsculas
+  difficulty: facil
+  in: [advanced-functions/UPPER]
+  statement: |
+    Liste os portões distintos em maiúsculas, em ordem alfabética.
+  ordered: true
+  solution: |
+    SELECT DISTINCT UPPER(gate) AS placa
+    FROM checkins
+    ORDER BY placa;
+  hints:
+    - Aplique a função antes do DISTINCT agir.
+  explanation: |
+    DISTINCT olha o resultado da expressão. Se `norte` e `Norte` existissem, virariam um só.
+  traps:
+    - reason: Minúsculas
+      sql: SELECT DISTINCT LOWER(gate) AS placa FROM checkins ORDER BY placa;
+    - reason: Sem conversão
+      sql: SELECT DISTINCT gate AS placa FROM checkins ORDER BY placa;
+
+- slug: busca-sem-maiusculas
+  title: Busca que ignora maiúsculas
+  difficulty: medio
+  in: [advanced-functions/LOWER]
+  statement: |
+    A busca por e-mail precisa ignorar maiúsculas. Liste `full_name` dos contatos do domínio `rockpress.com`, escrito de qualquer forma, usando `LOWER`. Ordene por nome.
+  ordered: true
+  must_use: [LOWER]
+  solution: |
+    SELECT full_name
+    FROM press_contacts
+    WHERE LOWER(email) LIKE '%@rockpress.com'
+    ORDER BY full_name;
+  hints:
+    - Normalize a coluna antes de comparar.
+  explanation: |
+    Normalizar os dois lados torna a comparação previsível. Função na coluna pode impedir o uso de índice comum, e um índice de expressão resolve.
+  traps:
+    - reason: Igualdade sem normalizar não casa
+      sql: SELECT full_name FROM press_contacts WHERE LOWER(email) = 'rockpress.com' ORDER BY full_name;
+
+- slug: situacao-da-banda
+  title: Situação de cada banda
+  difficulty: facil
+  in: [advanced-functions/CASE]
+  statement: |
+    Retorne `name` e a situação: `ativa` quando `disbanded_year` for nulo e `encerrada` nos outros casos. Ordene por nome.
+  ordered: true
+  solution: |
+    SELECT
+      name,
+      CASE WHEN disbanded_year IS NULL THEN 'ativa' ELSE 'encerrada' END AS situacao
+    FROM bands
+    ORDER BY name;
+  hints:
+    - No CASE também se usa IS NULL.
+  explanation: |
+    `CASE coluna WHEN NULL` nunca é verdadeiro, porque compara com `=`. Use a forma `CASE WHEN coluna IS NULL`.
+  traps:
+    - reason: CASE WHEN NULL nunca casa
+      sql: SELECT name, CASE disbanded_year WHEN NULL THEN 'ativa' ELSE 'encerrada' END FROM bands ORDER BY name;
+    - reason: Rótulos trocados
+      sql: SELECT name, CASE WHEN disbanded_year IS NULL THEN 'encerrada' ELSE 'ativa' END FROM bands ORDER BY name;
+
+- slug: pedidos-pagos-e-outros
+  title: Soma condicional
+  difficulty: medio
+  in: [advanced-functions/CASE]
+  statement: |
+    Em uma única linha e sem `WHERE`, retorne a soma de ingressos pagos e a soma dos demais, nessa ordem.
+  ordered: false
+  forbid: [WHERE]
+  solution: |
+    SELECT
+      SUM(CASE WHEN status = 'pago' THEN quantity ELSE 0 END) AS pagos,
+      SUM(CASE WHEN status <> 'pago' THEN quantity ELSE 0 END) AS outros
+    FROM tickets;
+  hints:
+    - Um CASE dentro de SUM soma só o que interessa.
+  explanation: |
+    Agregação condicional faz várias contas em uma única passada, sem subconsultas.
+  traps:
+    - reason: As colunas trocadas
+      sql: SELECT SUM(CASE WHEN status <> 'pago' THEN quantity ELSE 0 END), SUM(CASE WHEN status = 'pago' THEN quantity ELSE 0 END) FROM tickets;
+
+- slug: divisao-sem-erro
+  title: Divisão que não quebra
+  difficulty: medio
+  in: [advanced-functions/NULLIF]
+  statement: |
+    Retorne `item` e o preço dividido pelo estoque, arredondado para 2 casas, ordenados por `item`. Em bancos como PostgreSQL, dividir por zero gera erro. Use `NULLIF` para que o resultado seja nulo nesses casos.
+  ordered: true
+  must_use: [NULLIF]
+  solution: |
+    SELECT item, ROUND(price / NULLIF(stock, 0), 2) AS por_unidade
+    FROM merch
+    ORDER BY item;
+  hints:
+    - NULLIF(x, 0) devolve NULL quando x é 0.
+  explanation: |
+    Dividir por NULL resulta em NULL, sem erro. Esse padrão é tão comum que vale decorar. O SQLite já retorna NULL, mas outros bancos falham.
+  traps:
+    - reason: Argumentos invertidos
+      sql: SELECT item, ROUND(price / NULLIF(0, stock), 2) FROM merch ORDER BY item;
+
+- slug: contato-preferencial
+  title: Telefone ou e-mail
+  difficulty: facil
+  in: [advanced-functions/COALESCE]
+  statement: |
+    Para cada contato, retorne `full_name` e o melhor contato: o telefone se existir e, se não, o e-mail. Ordene por nome.
+  ordered: true
+  solution: |
+    SELECT full_name, COALESCE(phone, email) AS contato
+    FROM press_contacts
+    ORDER BY full_name;
+  hints:
+    - COALESCE devolve o primeiro argumento não nulo.
+  explanation: |
+    COALESCE aceita quantos argumentos forem necessários e avalia da esquerda para a direita.
+  traps:
+    - reason: Ordem invertida
+      sql: SELECT full_name, COALESCE(email, phone) FROM press_contacts ORDER BY full_name;
+
+- slug: entradas-de-um-dia
+  title: As entradas de um dia
+  difficulty: facil
+  in: [advanced-functions/DATE]
+  statement: |
+    Liste `id` e `gate` das entradas de `2026-03-14`, por `id`. A coluna `scanned_at` também guarda a hora, então a igualdade direta não funciona.
+  ordered: true
+  solution: |
+    SELECT id, gate
+    FROM checkins
+    WHERE DATE(scanned_at) = '2026-03-14'
+    ORDER BY id;
+  hints:
+    - DATE extrai só a parte do dia.
+  explanation: |
+    Comparar um timestamp com uma data pura quase nunca dá verdadeiro. Um intervalo com `>=` e `<` também resolve e pode usar índice.
+  traps:
+    - reason: Igualdade com timestamp não casa
+      sql: SELECT id, gate FROM checkins WHERE scanned_at = '2026-03-14' ORDER BY id;
+
+- slug: entradas-noite
+  title: Entradas depois das 20h
+  difficulty: facil
+  in: [advanced-functions/TIME]
+  statement: |
+    Liste `id` e o horário das entradas a partir das 20h, inclusive, em qualquer dia. Ordene por `id`.
+  ordered: true
+  solution: |
+    SELECT id, TIME(scanned_at) AS horario
+    FROM checkins
+    WHERE TIME(scanned_at) >= '20:00:00'
+    ORDER BY id;
+  hints:
+    - Horários no formato HH:MM:SS podem ser comparados como texto.
+  explanation: |
+    TIME ignora a data, o que permite analisar padrões por horário ao longo de vários dias.
+  traps:
+    - reason: Exclui exatamente 20h e usa o timestamp
+      sql: SELECT id, scanned_at FROM checkins WHERE TIME(scanned_at) >= '20:00:00' ORDER BY id;
+    - reason: Antes das 20h
+      sql: SELECT id, TIME(scanned_at) FROM checkins WHERE TIME(scanned_at) < '20:00:00' ORDER BY id;
+
+- slug: intervalo-entre-entradas
+  title: Tempo até a primeira entrada
+  difficulty: dificil
+  in: [advanced-functions/TIMESTAMP]
+  statement: |
+    Para cada dia com entradas, retorne a data e quantos minutos se passaram entre a primeira e a última entrada, arredondando para o inteiro mais próximo. Ordene pela data.
+
+    `JULIANDAY` converte timestamp em dias, com fração. Um dia tem 1440 minutos.
+  ordered: true
+  solution: |
+    SELECT
+      DATE(scanned_at) AS dia,
+      ROUND((JULIANDAY(MAX(scanned_at)) - JULIANDAY(MIN(scanned_at))) * 1440) AS minutos
+    FROM checkins
+    GROUP BY dia
+    ORDER BY dia;
+  hints:
+    - Subtraia os dois valores e converta de dias para minutos.
+  explanation: |
+    Cada banco tem sua forma de calcular intervalos. PostgreSQL permite subtrair timestamps direto, e SQL Server usa DATEDIFF. A lógica é a mesma.
+  traps:
+    - reason: Mostra horas
+      sql: SELECT DATE(scanned_at) AS dia, ROUND((JULIANDAY(MAX(scanned_at)) - JULIANDAY(MIN(scanned_at))) * 24) AS minutos FROM checkins GROUP BY dia ORDER BY dia;
+    - reason: Sem agrupar por dia
+      sql: SELECT DATE(scanned_at) AS dia, ROUND((JULIANDAY(MAX(scanned_at)) - JULIANDAY(MIN(scanned_at))) * 1440) FROM checkins ORDER BY dia;
+
+- slug: shows-por-dia-da-semana
+  title: Shows de fim de semana
+  difficulty: medio
+  in: [advanced-functions/DATEPART]
+  statement: |
+    Liste `id` e `show_date` dos shows em sábado ou domingo, por `id`.
+
+    No SQLite, `strftime('%w', data)` retorna o dia da semana como texto, com `0` para domingo e `6` para sábado.
+  ordered: true
+  solution: |
+    SELECT id, show_date
+    FROM shows
+    WHERE strftime('%w', show_date) IN ('0', '6')
+    ORDER BY id;
+  hints:
+    - O resultado de strftime é texto.
+  explanation: |
+    Extrair partes de data permite perguntas de calendário. Em outros bancos, a numeração dos dias pode começar em outro dia, então confira a documentação.
+  traps:
+    - reason: Só domingos
+      sql: SELECT id, show_date FROM shows WHERE strftime('%w', show_date) = '0' ORDER BY id;
+    - reason: Dias úteis
+      sql: SELECT id, show_date FROM shows WHERE strftime('%w', show_date) NOT IN ('0', '6') ORDER BY id;
+
+- slug: receita-por-trimestre
+  title: Shows por trimestre
+  difficulty: dificil
+  in: [advanced-functions/DATEPART]
+  statement: |
+    Conte os shows por ano e trimestre. Retorne o ano como texto, o trimestre como número de 1 a 4 e a quantidade. Ordene por ano e trimestre.
+  ordered: true
+  solution: |
+    SELECT
+      strftime('%Y', show_date) AS ano,
+      (CAST(strftime('%m', show_date) AS INTEGER) + 2) / 3 AS trimestre,
+      COUNT(*) AS total
+    FROM shows
+    GROUP BY ano, trimestre
+    ORDER BY ano, trimestre;
+  hints:
+    - Janeiro a março vira 1. Divisão inteira ajuda, com um ajuste antes.
+  explanation: |
+    `(mes + 2) / 3` mapeia os meses em trimestres usando a divisão inteira. Outros bancos têm `EXTRACT(QUARTER ...)`.
+  traps:
+    - reason: Sem o ajuste
+      sql: SELECT strftime('%Y', show_date) AS ano, CAST(strftime('%m', show_date) AS INTEGER) / 3 AS trimestre, COUNT(*) FROM shows GROUP BY ano, trimestre ORDER BY ano, trimestre;
+    - reason: Agrupa por trimestre sem o ano
+      sql: SELECT MIN(strftime('%Y', show_date)) AS ano, (CAST(strftime('%m', show_date) AS INTEGER) + 2) / 3 AS trimestre, COUNT(*) FROM shows GROUP BY trimestre ORDER BY ano, trimestre;
+
+- slug: venda-encerra-antes
+  title: A venda encerra um dia antes
+  difficulty: facil
+  in: [advanced-functions/DATEADD]
+  statement: |
+    A venda online de cada show encerra um dia antes da data do show, e o reembolso acaba um mês antes. Retorne `id`, a data do fim da venda e a do fim do reembolso, por `id`.
+  ordered: true
+  solution: |
+    SELECT id, DATE(show_date, '-1 day') AS venda, DATE(show_date, '-1 month') AS reembolso
+    FROM shows
+    ORDER BY id;
+  hints:
+    - Os modificadores aceitam dias, meses e anos.
+  explanation: |
+    Somar meses tem armadilhas. `DATE('2026-03-31', '-1 month')` normaliza para 3 de março no SQLite, e outros bancos dão resultados diferentes. Teste os fins de mês.
+  traps:
+    - reason: Um dia depois
+      sql: SELECT id, DATE(show_date, '+1 day'), DATE(show_date, '-1 month') FROM shows ORDER BY id;
+    - reason: Um ano em vez de um mês
+      sql: SELECT id, DATE(show_date, '-1 day'), DATE(show_date, '-1 year') FROM shows ORDER BY id;
+
+- slug: dias-ate-o-proximo-show
+  title: Shows nos próximos 30 dias
+  difficulty: medio
+  in: [advanced-functions/DATEADD]
+  statement: |
+    Considere hoje como `2026-03-10`. Liste `id` e `show_date` dos shows de hoje até 30 dias depois, inclusive. Ordene por data e depois por `id`.
+
+    Calcule o limite com função de data, sem digitar a data final.
+  ordered: true
+  must_use: [DATE]
+  solution: |
+    SELECT id, show_date
+    FROM shows
+    WHERE show_date BETWEEN '2026-03-10' AND DATE('2026-03-10', '+30 days')
+    ORDER BY show_date, id;
+  hints:
+    - A data de hoje é fixa aqui para o resultado não mudar. Em produção, use `DATE('now')`.
+  explanation: |
+    Calcular o intervalo a partir de uma data de referência deixa a consulta reutilizável. Em produção, a referência costuma ser a data atual.
+  traps:
+    - reason: Só um mês do calendário
+      sql: SELECT id, show_date FROM shows WHERE show_date BETWEEN '2026-03-10' AND DATE('2026-03-10', '+3 days') ORDER BY show_date, id;
+    - reason: Para trás
+      sql: SELECT id, show_date FROM shows WHERE show_date BETWEEN DATE('2026-03-10', '-30 days') AND '2026-03-10' ORDER BY show_date, id;

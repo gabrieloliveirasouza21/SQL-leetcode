@@ -17,6 +17,8 @@ export interface Problem extends JudgedProblem {
   slug: string;
   title: string;
   difficulty: Difficulty;
+  /** Lugares na trilha, além dos listados em roadmap.yaml. */
+  in?: string[];
   statement: string;
   hints: string[];
   explanation: string;
@@ -51,6 +53,32 @@ const files = import.meta.glob<string>('../content/problems/*.yaml', {
 
 export const topics: Topic[] = (parse(roadmapRaw) as { topics: Topic[] }).topics;
 
+// Um arquivo pode trazer um problema ou uma lista deles.
+const loaded = Object.values(files).flatMap((raw) => parse(raw) as Problem | Problem[]);
+
+// `in` liga o problema à hierarquia, como `dml/WHERE`, ou só `stored-procedures` em tópico sem subtópicos.
+for (const problem of loaded) {
+  for (const place of problem.in ?? []) {
+    // Só a primeira barra separa: há subtópicos com barra no nome, como Pivot / Unpivot Operations.
+    const slash = place.indexOf('/');
+    const topicId = slash === -1 ? place : place.slice(0, slash);
+    const subtopicName = slash === -1 ? '' : place.slice(slash + 1);
+    const topic = topics.find((t) => t.id === topicId);
+    const target = subtopicName ? topic?.subtopics.find((s) => s.name === subtopicName) : topic;
+    if (!target) throw new Error(`${problem.slug}: lugar desconhecido na trilha: ${place}`);
+    (target.problems ??= []).push(problem.slug);
+  }
+}
+
+// Dentro de cada subtópico, do mais fácil para o mais difícil.
+const DIFFICULTY_RANK: Record<Difficulty, number> = { facil: 0, medio: 1, dificil: 2 };
+const difficultyOf = new Map(loaded.map((p) => [p.slug, DIFFICULTY_RANK[p.difficulty]]));
+const byDifficulty = (a: string, b: string) => (difficultyOf.get(a) ?? 0) - (difficultyOf.get(b) ?? 0);
+for (const topic of topics) {
+  topic.problems?.sort(byDifficulty);
+  for (const subtopic of topic.subtopics) subtopic.problems.sort(byDifficulty);
+}
+
 /** Todos os problemas de um tópico, sem repetir. */
 export function topicProblemSlugs(topic: Topic): string[] {
   return [...new Set([...(topic.problems ?? []), ...topic.subtopics.flatMap((s) => s.problems)])];
@@ -58,15 +86,13 @@ export function topicProblemSlugs(topic: Topic): string[] {
 
 const roadmapOrder = [...new Set(topics.flatMap(topicProblemSlugs))];
 
-// Um arquivo pode trazer um problema ou uma lista deles. Problema fora do roadmap vai para o fim.
+// Problema fora do roadmap vai para o fim.
 const rank = (slug: string) => {
   const index = roadmapOrder.indexOf(slug);
   return index === -1 ? roadmapOrder.length : index;
 };
 
-export const problems: Problem[] = Object.values(files)
-  .flatMap((raw) => parse(raw) as Problem | Problem[])
-  .sort((a, b) => rank(a.slug) - rank(b.slug));
+export const problems: Problem[] = [...loaded].sort((a, b) => rank(a.slug) - rank(b.slug));
 
 /** Tópico em que o problema aparece primeiro. */
 export const topicOf = (slug: string) => topics.find((topic) => topicProblemSlugs(topic).includes(slug));
