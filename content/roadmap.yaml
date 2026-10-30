@@ -1,0 +1,40 @@
+title: SQL
+sections:
+  - id: fundamentos
+    title: Fundamentos
+    summary: Ler dados, filtrar e ordenar. E entender por que NULL não é um valor.
+    study:
+      - label: SELECT na documentação do SQLite
+        url: https://www.sqlite.org/lang_select.html
+  - id: agregacao
+    title: Agregação
+    summary: Transformar muitas linhas em poucas respostas.
+    study:
+      - label: Funções de agregação
+        url: https://www.sqlite.org/lang_aggfunc.html
+  - id: manipulacao
+    title: Alterar dados
+    summary: Mudar o banco sem destruir o que não devia ser tocado.
+    study:
+      - label: UPDATE na documentação do SQLite
+        url: https://www.sqlite.org/lang_update.html
+  - id: joins
+    title: Joins
+    summary: Cruzar tabelas e decidir o que acontece com quem não tem par.
+    study:
+      - label: Joins em SELECT
+        url: https://www.sqlite.org/lang_select.html
+  - id: subqueries
+    title: Subqueries e CASE
+    summary: Perguntas dentro de perguntas e regras dentro da query.
+    study:
+      - label: Expressões, CASE e subqueries
+        url: https://www.sqlite.org/lang_expr.html
+  - id: avancado
+    title: Window functions e CTEs
+    summary: Comparar linhas entre si sem perder o detalhe e percorrer hierarquias.
+    study:
+      - label: Window functions
+        url: https://www.sqlite.org/windowfunctions.html
+      - label: Cláusula WITH e CTEs recursivas
+        url: https://www.sqlite.org/lang_with.html

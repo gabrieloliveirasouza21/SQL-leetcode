@@ -1,0 +1,26 @@
+slug: generos-em-alta
+order: 3
+title: Gêneros com palco próprio
+section: agregacao
+difficulty: facil
+topics: [GROUP BY, HAVING, COUNT]
+statement: |
+  Um gênero só ganha palco próprio se tiver pelo menos 2 bandas cadastradas.
+
+  Liste cada `genre` que atende à regra e a quantidade de bandas dele. Ordene pela quantidade, da maior para a menor. Em caso de empate, ordene pelo gênero em ordem alfabética.
+ordered: true
+solution: |
+  SELECT genre, COUNT(*) AS total
+  FROM bands
+  GROUP BY genre
+  HAVING COUNT(*) >= 2
+  ORDER BY total DESC, genre;
+hints:
+  - WHERE filtra linhas antes de agrupar. O que filtra grupos depois de contar?
+explanation: |
+  WHERE age antes do GROUP BY, quando a contagem ainda não existe. HAVING age depois, por isso consegue filtrar pelo resultado de COUNT.
+traps:
+  - reason: Sem filtrar os grupos
+    sql: SELECT genre, COUNT(*) AS total FROM bands GROUP BY genre ORDER BY total DESC, genre;
+  - reason: Exclui gêneros com exatamente 2 bandas
+    sql: SELECT genre, COUNT(*) AS total FROM bands GROUP BY genre HAVING COUNT(*) > 2 ORDER BY total DESC, genre;

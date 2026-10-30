@@ -1,0 +1,34 @@
+slug: faixas-de-preco
+order: 11
+title: Faixas de preço
+section: subqueries
+difficulty: medio
+topics: [CASE, GROUP BY]
+statement: |
+  O marketing divide os shows em três faixas de `ticket_price`:
+
+  `popular`: abaixo de 80. `medio`: de 80 até abaixo de 200. `premium`: 200 ou mais.
+
+  Retorne cada faixa e a quantidade de shows nela, em ordem alfabética de faixa. Faixas sem show não precisam aparecer.
+ordered: true
+solution: |
+  SELECT
+    CASE
+      WHEN ticket_price < 80 THEN 'popular'
+      WHEN ticket_price < 200 THEN 'medio'
+      ELSE 'premium'
+    END AS faixa,
+    COUNT(*) AS total
+  FROM shows
+  GROUP BY faixa
+  ORDER BY faixa;
+hints:
+  - CASE testa as condições em ordem e para na primeira verdadeira.
+  - Você pode agrupar pelo resultado de um CASE.
+explanation: |
+  Como o CASE para na primeira condição verdadeira, a segunda não precisa repetir o limite inferior. Quando a regra de negócio vive em um único CASE, os limites ficam em um lugar só.
+traps:
+  - reason: 80 deveria ser medio
+    sql: SELECT CASE WHEN ticket_price <= 80 THEN 'popular' WHEN ticket_price < 200 THEN 'medio' ELSE 'premium' END AS faixa, COUNT(*) FROM shows GROUP BY faixa ORDER BY faixa;
+  - reason: 200 deveria ser premium
+    sql: SELECT CASE WHEN ticket_price < 80 THEN 'popular' WHEN ticket_price <= 200 THEN 'medio' ELSE 'premium' END AS faixa, COUNT(*) FROM shows GROUP BY faixa ORDER BY faixa;

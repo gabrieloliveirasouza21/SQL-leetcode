@@ -1,0 +1,27 @@
+slug: bandas-sem-show
+order: 7
+title: Fora da programação
+section: joins
+difficulty: medio
+topics: [LEFT JOIN, 'NULL']
+statement: |
+  A produção quer convidar bandas que ainda não têm nenhum show marcado.
+
+  Liste o `name` das bandas sem nenhuma linha em `shows`, em ordem alfabética.
+ordered: true
+solution: |
+  SELECT b.name
+  FROM bands b
+  LEFT JOIN shows s ON s.band_id = b.id
+  WHERE s.id IS NULL
+  ORDER BY b.name;
+hints:
+  - INNER JOIN descarta justamente as bandas que você procura.
+  - Em um LEFT JOIN, o que aparece nas colunas de shows quando a banda não tem par?
+explanation: |
+  LEFT JOIN mantém todas as bandas e preenche com NULL as colunas de shows quando não há par. Filtrar esse NULL deixa só quem não tem show. NOT EXISTS resolve o mesmo problema e também é aceito.
+traps:
+  - reason: INNER JOIN traz só quem tem show
+    sql: SELECT DISTINCT b.name FROM bands b JOIN shows s ON s.band_id = b.id ORDER BY b.name;
+  - reason: IDs fixos não valem em outros dados
+    sql: SELECT name FROM bands WHERE id NOT IN (1, 2, 4, 5, 8) ORDER BY name;

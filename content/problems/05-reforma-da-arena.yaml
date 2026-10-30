@@ -1,0 +1,28 @@
+slug: reforma-da-arena
+order: 5
+title: A reforma da arena
+section: manipulacao
+difficulty: facil
+topics: [UPDATE, WHERE]
+statement: |
+  A `Arena Tupi` passou por uma reforma e agora comporta 15000 pessoas.
+
+  Escreva o comando que atualiza a capacidade dessa casa. As outras casas não podem mudar. O corretor confere a tabela `venues` depois do seu comando.
+ordered: true
+check: SELECT id, name, capacity FROM venues ORDER BY id;
+solution: |
+  UPDATE venues
+  SET capacity = 15000
+  WHERE name = 'Arena Tupi';
+hints:
+  - Rode SELECT * FROM venues depois do seu comando para ver o efeito. O banco volta ao estado original a cada execução.
+  - IDs mudam entre ambientes. O enunciado identifica a casa pelo nome.
+explanation: |
+  UPDATE sem WHERE altera a tabela inteira e, em produção, é um dos erros mais caros que existem. Um bom hábito é rodar antes um SELECT com o mesmo WHERE para ver quais linhas serão afetadas.
+traps:
+  - reason: UPDATE sem WHERE altera todas as casas
+    sql: UPDATE venues SET capacity = 15000;
+  - reason: ID fixo não vale em outros dados
+    sql: UPDATE venues SET capacity = 15000 WHERE id = 1;
+  - reason: Só consulta, não altera
+    sql: SELECT * FROM venues;

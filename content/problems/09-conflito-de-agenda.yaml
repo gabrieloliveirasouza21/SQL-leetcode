@@ -1,0 +1,30 @@
+slug: conflito-de-agenda
+order: 9
+title: Dois palcos no mesmo dia
+section: joins
+difficulty: medio
+topics: [SELF JOIN]
+statement: |
+  Um erro de agendamento colocou algumas bandas em mais de um show na mesma data.
+
+  Para cada par de shows em conflito (mesma banda, mesma data), retorne o nome da banda, a data, o menor `id` do par e o maior `id` do par. Cada par aparece uma única vez. Ordene por nome da banda, data, menor `id` e maior `id`.
+ordered: true
+solution: |
+  SELECT b.name, a.show_date, a.id, c.id
+  FROM shows a
+  JOIN shows c
+    ON c.band_id = a.band_id
+   AND c.show_date = a.show_date
+   AND a.id < c.id
+  JOIN bands b ON b.id = a.band_id
+  ORDER BY b.name, a.show_date, a.id, c.id;
+hints:
+  - Uma tabela pode aparecer duas vezes na mesma query, cada vez com um apelido.
+  - Com `a.id <> c.id`, o par (11, 12) também aparece como (12, 11). Que comparação deixa só um deles?
+explanation: |
+  O self join compara cada show com todos os outros. A condição `a.id < c.id` faz duas coisas: impede que um show forme par consigo mesmo e deixa só uma versão de cada par. Três shows no mesmo dia geram três pares.
+traps:
+  - reason: Cada par aparece duas vezes
+    sql: SELECT b.name, a.show_date, a.id, c.id FROM shows a JOIN shows c ON c.band_id = a.band_id AND c.show_date = a.show_date AND a.id <> c.id JOIN bands b ON b.id = a.band_id ORDER BY b.name, a.show_date, a.id, c.id;
+  - reason: Bandas diferentes na mesma data não são conflito
+    sql: SELECT b.name, a.show_date, a.id, c.id FROM shows a JOIN shows c ON c.show_date = a.show_date AND a.id < c.id JOIN bands b ON b.id = a.band_id ORDER BY b.name, a.show_date, a.id, c.id;

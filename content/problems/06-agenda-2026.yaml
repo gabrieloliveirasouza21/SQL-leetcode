@@ -1,0 +1,30 @@
+slug: agenda-2026
+order: 6
+title: A agenda de 2026
+section: joins
+difficulty: medio
+topics: [INNER JOIN, WHERE, ORDER BY]
+statement: |
+  O site do festival precisa publicar a agenda do ano.
+
+  Para cada show realizado em 2026 (de 1º de janeiro a 31 de dezembro, inclusive), retorne o nome da banda, a cidade da casa e a data. Ordene por data, depois por nome da banda, depois por cidade.
+ordered: true
+solution: |
+  SELECT b.name, v.city, s.show_date
+  FROM shows s
+  JOIN bands b ON b.id = s.band_id
+  JOIN venues v ON v.id = s.venue_id
+  WHERE s.show_date BETWEEN '2026-01-01' AND '2026-12-31'
+  ORDER BY s.show_date, b.name, v.city;
+hints:
+  - A tabela shows é o centro. Ela guarda os IDs que levam às outras duas tabelas.
+  - Datas no formato AAAA-MM-DD podem ser comparadas como texto. Cuidado com os dois extremos do ano.
+explanation: |
+  shows liga bands e venues pelas chaves estrangeiras, então cada JOIN segue uma dessas chaves. O formato AAAA-MM-DD faz a ordem alfabética coincidir com a cronológica, e por isso BETWEEN funciona em texto.
+traps:
+  - reason: Sem filtrar o ano
+    sql: SELECT b.name, v.city, s.show_date FROM shows s JOIN bands b ON b.id = s.band_id JOIN venues v ON v.id = s.venue_id ORDER BY s.show_date, b.name, v.city;
+  - reason: Exclui 1º de janeiro
+    sql: SELECT b.name, v.city, s.show_date FROM shows s JOIN bands b ON b.id = s.band_id JOIN venues v ON v.id = s.venue_id WHERE s.show_date > '2026-01-01' AND s.show_date <= '2026-12-31' ORDER BY s.show_date, b.name, v.city;
+  - reason: Exclui 31 de dezembro
+    sql: SELECT b.name, v.city, s.show_date FROM shows s JOIN bands b ON b.id = s.band_id JOIN venues v ON v.id = s.venue_id WHERE s.show_date >= '2026-01-01' AND s.show_date < '2026-12-31' ORDER BY s.show_date, b.name, v.city;

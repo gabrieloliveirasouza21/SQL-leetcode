@@ -1,0 +1,30 @@
+slug: vendas-por-show
+order: 8
+title: O show que não vendeu nada
+section: joins
+difficulty: medio
+topics: [LEFT JOIN, GROUP BY, COALESCE]
+statement: |
+  A produção quer um relatório de vendas com todos os shows, inclusive os que não venderam nada. Esses são os mais importantes, porque precisam de divulgação.
+
+  Para cada show, retorne o `id` e o total de ingressos com `status` igual a `pago`. Show sem venda paga deve aparecer com 0. Ordene pelo `id` do show.
+ordered: true
+solution: |
+  SELECT s.id, COALESCE(SUM(t.quantity), 0) AS vendidos
+  FROM shows s
+  LEFT JOIN tickets t ON t.show_id = s.id AND t.status = 'pago'
+  GROUP BY s.id
+  ORDER BY s.id;
+hints:
+  - Observe o show 7. Ele tem um pedido, mas só uma reserva, e precisa aparecer com 0.
+  - Teste o filtro de status no WHERE e depois no ON. Compare o número de linhas.
+  - SUM de nenhum valor resulta em NULL, não em 0.
+explanation: |
+  Esta é uma das armadilhas mais comuns de SQL. Um filtro no WHERE roda depois do LEFT JOIN e elimina as linhas preenchidas com NULL, o que transforma o LEFT JOIN em INNER JOIN. No ON, o filtro só decide quais pedidos têm par, e todo show continua no resultado.
+traps:
+  - reason: Filtro no WHERE elimina shows sem venda
+    sql: SELECT s.id, COALESCE(SUM(t.quantity), 0) FROM shows s LEFT JOIN tickets t ON t.show_id = s.id WHERE t.status = 'pago' GROUP BY s.id ORDER BY s.id;
+  - reason: Sem COALESCE aparece NULL em vez de 0
+    sql: SELECT s.id, SUM(t.quantity) FROM shows s LEFT JOIN tickets t ON t.show_id = s.id AND t.status = 'pago' GROUP BY s.id ORDER BY s.id;
+  - reason: Conta reservas e cancelamentos
+    sql: SELECT s.id, COALESCE(SUM(t.quantity), 0) FROM shows s LEFT JOIN tickets t ON t.show_id = s.id GROUP BY s.id ORDER BY s.id;

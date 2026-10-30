@@ -1,0 +1,41 @@
+slug: ingresso-mais-caro
+order: 12
+title: O ingresso mais caro de cada banda
+section: avancado
+difficulty: dificil
+topics: [Window functions, RANK, DENSE_RANK]
+statement: |
+  Para a página de cada banda, queremos destacar seu show com o ingresso mais caro. Se dois shows empatarem no maior preço, os dois aparecem.
+
+  Retorne o nome da banda, a data e o preço. Ordene por nome da banda e depois por data.
+ordered: true
+solution: |
+  WITH ranqueados AS (
+    SELECT
+      s.band_id,
+      s.show_date,
+      s.ticket_price,
+      RANK() OVER (
+        PARTITION BY s.band_id
+        ORDER BY s.ticket_price DESC
+      ) AS posicao
+    FROM shows s
+  )
+  SELECT b.name, r.show_date, r.ticket_price
+  FROM ranqueados r
+  JOIN bands b ON b.id = r.band_id
+  WHERE r.posicao = 1
+  ORDER BY b.name, r.show_date;
+hints:
+  - GROUP BY com MAX devolve uma linha por banda. Isso basta quando há empate?
+  - Compare ROW_NUMBER, RANK e DENSE_RANK nos dois shows da Steel Hymn.
+  - Window functions não podem ir direto no WHERE. Calcule antes em uma CTE ou subquery.
+explanation: |
+  ROW_NUMBER numera sem repetir, então corta um dos empatados. RANK e DENSE_RANK dão a mesma posição a preços iguais. Aqui os dois funcionam, porque só a posição 1 importa. Como a window function é calculada depois do WHERE, é preciso envolvê-la em uma CTE para poder filtrar.
+traps:
+  - reason: ROW_NUMBER corta empates
+    sql: WITH r AS (SELECT s.band_id, s.show_date, s.ticket_price, ROW_NUMBER() OVER (PARTITION BY s.band_id ORDER BY s.ticket_price DESC) AS p FROM shows s) SELECT b.name, r.show_date, r.ticket_price FROM r JOIN bands b ON b.id = r.band_id WHERE r.p = 1 ORDER BY b.name, r.show_date;
+  - reason: GROUP BY devolve uma única linha por banda
+    sql: SELECT b.name, s.show_date, MAX(s.ticket_price) FROM shows s JOIN bands b ON b.id = s.band_id GROUP BY b.name ORDER BY b.name, s.show_date;
+  - reason: Sem PARTITION BY o ranking é global
+    sql: WITH r AS (SELECT s.band_id, s.show_date, s.ticket_price, RANK() OVER (ORDER BY s.ticket_price DESC) AS p FROM shows s) SELECT b.name, r.show_date, r.ticket_price FROM r JOIN bands b ON b.id = r.band_id WHERE r.p = 1 ORDER BY b.name, r.show_date;

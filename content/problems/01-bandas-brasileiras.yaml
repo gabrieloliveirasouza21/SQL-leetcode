@@ -1,0 +1,25 @@
+slug: bandas-brasileiras
+order: 1
+title: A cena nacional
+section: fundamentos
+difficulty: facil
+topics: [SELECT, WHERE, ORDER BY]
+statement: |
+  A curadoria do festival quer abrir a programação pelas bandas nacionais, das mais antigas para as mais novas.
+
+  Liste `name` e `formed_year` das bandas do país `Brasil`. Ordene por ano de formação crescente. Em caso de empate, ordene pelo nome em ordem alfabética.
+ordered: true
+solution: |
+  SELECT name, formed_year
+  FROM bands
+  WHERE country = 'Brasil'
+  ORDER BY formed_year, name;
+hints:
+  - ORDER BY aceita mais de uma coluna. A segunda só decide quando a primeira empata.
+explanation: |
+  Sem ORDER BY, o banco não garante nenhuma ordem. Se a saída parecia certa, era coincidência. A segunda coluna do ORDER BY é o que torna o resultado previsível nos empates.
+traps:
+  - reason: Sem ordenação
+    sql: SELECT name, formed_year FROM bands WHERE country = 'Brasil';
+  - reason: Sem desempate
+    sql: SELECT name, formed_year FROM bands WHERE country = 'Brasil' ORDER BY formed_year;

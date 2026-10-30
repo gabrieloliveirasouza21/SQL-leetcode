@@ -1,0 +1,48 @@
+slug: evolucao-de-publico
+order: 13
+title: A banda está crescendo?
+section: avancado
+difficulty: dificil
+topics: [LAG, CTE, LEFT JOIN]
+statement: |
+  Queremos saber se cada banda vende mais ou menos a cada show.
+
+  Para cada show, retorne o nome da banda, a data, o total de ingressos pagos (0 se não houver) e a variação em relação ao show anterior da mesma banda. O primeiro show de cada banda tem variação nula.
+
+  O show anterior é definido por data e, em caso de empate, pelo `id` do show. Ordene o resultado por nome da banda, data e `id` do show.
+ordered: true
+solution: |
+  WITH vendas AS (
+    SELECT
+      s.id,
+      s.band_id,
+      s.show_date,
+      COALESCE(SUM(t.quantity), 0) AS vendidos
+    FROM shows s
+    LEFT JOIN tickets t ON t.show_id = s.id AND t.status = 'pago'
+    GROUP BY s.id
+  )
+  SELECT
+    b.name,
+    v.show_date,
+    v.vendidos,
+    v.vendidos - LAG(v.vendidos) OVER (
+      PARTITION BY v.band_id
+      ORDER BY v.show_date, v.id
+    ) AS variacao
+  FROM vendas v
+  JOIN bands b ON b.id = v.band_id
+  ORDER BY b.name, v.show_date, v.id;
+hints:
+  - Divida em duas etapas. Primeiro calcule as vendas por show, como em "O show que não vendeu nada".
+  - LAG(coluna) lê o valor da linha anterior dentro da janela.
+  - Sem PARTITION BY, o primeiro show de uma banda seria comparado com o último da banda anterior.
+explanation: |
+  A CTE separa as etapas: primeiro o total por show, depois a comparação entre shows. Tentar fazer tudo de uma vez mistura o GROUP BY com a janela e fica difícil de ler. O PARTITION BY reinicia a comparação a cada banda, e por isso o primeiro show fica com NULL.
+traps:
+  - reason: Sem PARTITION BY compara bandas diferentes
+    sql: WITH v AS (SELECT s.id, s.band_id, s.show_date, COALESCE(SUM(t.quantity), 0) AS q FROM shows s LEFT JOIN tickets t ON t.show_id = s.id AND t.status = 'pago' GROUP BY s.id) SELECT b.name, v.show_date, v.q, v.q - LAG(v.q) OVER (ORDER BY v.band_id, v.show_date, v.id) FROM v JOIN bands b ON b.id = v.band_id ORDER BY b.name, v.show_date, v.id;
+  - reason: INNER JOIN esconde shows sem venda
+    sql: WITH v AS (SELECT s.id, s.band_id, s.show_date, SUM(t.quantity) AS q FROM shows s JOIN tickets t ON t.show_id = s.id AND t.status = 'pago' GROUP BY s.id) SELECT b.name, v.show_date, v.q, v.q - LAG(v.q) OVER (PARTITION BY v.band_id ORDER BY v.show_date, v.id) FROM v JOIN bands b ON b.id = v.band_id ORDER BY b.name, v.show_date, v.id;
+  - reason: Variação invertida
+    sql: WITH v AS (SELECT s.id, s.band_id, s.show_date, COALESCE(SUM(t.quantity), 0) AS q FROM shows s LEFT JOIN tickets t ON t.show_id = s.id AND t.status = 'pago' GROUP BY s.id) SELECT b.name, v.show_date, v.q, LAG(v.q) OVER (PARTITION BY v.band_id ORDER BY v.show_date, v.id) - v.q FROM v JOIN bands b ON b.id = v.band_id ORDER BY b.name, v.show_date, v.id;

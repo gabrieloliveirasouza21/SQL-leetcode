@@ -1,0 +1,42 @@
+slug: linhagem-de-mentores
+order: 14
+title: A linhagem de Ana Ferro
+section: avancado
+difficulty: dificil
+topics: [CTE recursiva]
+statement: |
+  O documentário do festival vai contar a influência de Ana Ferro na cena. Em `members`, `mentor_id` aponta para quem ensinou cada músico.
+
+  Liste todos os músicos que descendem de `Ana Ferro`, direta ou indiretamente, com o nível de distância: 1 para alunos dela, 2 para alunos dos alunos, e assim por diante. Ana não entra no resultado, e a profundidade da árvore não é conhecida.
+
+  Retorne `name` e o nível. Ordene por nível e depois por nome.
+ordered: true
+solution: |
+  WITH RECURSIVE linhagem (id, name, nivel) AS (
+    SELECT id, name, 0
+    FROM members
+    WHERE name = 'Ana Ferro'
+    UNION ALL
+    SELECT m.id, m.name, l.nivel + 1
+    FROM members m
+    JOIN linhagem l ON m.mentor_id = l.id
+  )
+  SELECT name, nivel
+  FROM linhagem
+  WHERE nivel > 0
+  ORDER BY nivel, name;
+hints:
+  - Encadear joins só funciona se você souber a profundidade, e aqui você não sabe.
+  - Uma CTE recursiva tem duas partes unidas por UNION ALL. A primeira é o ponto de partida. A segunda usa a própria CTE para dar o próximo passo.
+  - Comece por Ana no nível 0. A condição de parada é implícita, porque a recursão termina quando um nível não encontra ninguém.
+explanation: |
+  A cada passagem, a parte recursiva enxerga só as linhas do nível anterior e busca os alunos delas. Quando nenhum aluno novo aparece, a recursão termina sozinha. Uma query com três joins até resolveria o exemplo, mas quebraria na primeira árvore mais funda. Cuidado: dados com ciclo fariam essa query rodar para sempre, e é por isso que o corretor tem limite de tempo.
+traps:
+  - reason: Só o primeiro nível
+    sql: SELECT m.name, 1 FROM members m JOIN members a ON m.mentor_id = a.id WHERE a.name = 'Ana Ferro' ORDER BY 2, 1;
+  - reason: Profundidade fixa em 3 níveis
+    sql: SELECT m.name, 1 AS n FROM members m JOIN members a ON m.mentor_id = a.id WHERE a.name = 'Ana Ferro' UNION ALL SELECT m.name, 2 FROM members m JOIN members x ON m.mentor_id = x.id JOIN members a ON x.mentor_id = a.id WHERE a.name = 'Ana Ferro' UNION ALL SELECT m.name, 3 FROM members m JOIN members y ON m.mentor_id = y.id JOIN members x ON y.mentor_id = x.id JOIN members a ON x.mentor_id = a.id WHERE a.name = 'Ana Ferro' ORDER BY n, 1;
+  - reason: Inclui a própria Ana
+    sql: WITH RECURSIVE l (id, name, n) AS (SELECT id, name, 0 FROM members WHERE name = 'Ana Ferro' UNION ALL SELECT m.id, m.name, l.n + 1 FROM members m JOIN l ON m.mentor_id = l.id) SELECT name, n FROM l ORDER BY n, name;
+  - reason: ID fixo não vale em outros dados
+    sql: WITH RECURSIVE l (id, name, n) AS (SELECT id, name, 0 FROM members WHERE id = 1 UNION ALL SELECT m.id, m.name, l.n + 1 FROM members m JOIN l ON m.mentor_id = l.id) SELECT name, n FROM l WHERE n > 0 ORDER BY n, name;

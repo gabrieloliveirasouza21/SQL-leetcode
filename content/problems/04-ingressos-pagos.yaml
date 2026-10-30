@@ -1,0 +1,24 @@
+slug: ingressos-pagos
+order: 4
+title: Quantos ingressos saíram?
+section: agregacao
+difficulty: facil
+topics: [SUM, WHERE]
+statement: |
+  Cada linha de `tickets` é um pedido, e um pedido pode ter vários ingressos na coluna `quantity`. Reservas e cancelamentos não contam como venda.
+
+  Retorne uma única linha e uma única coluna com o total de ingressos com `status` igual a `pago`.
+ordered: false
+solution: |
+  SELECT SUM(quantity) AS total
+  FROM tickets
+  WHERE status = 'pago';
+hints:
+  - Contar pedidos e somar ingressos são perguntas diferentes.
+explanation: |
+  COUNT(*) responde quantas linhas existem. SUM(quantity) responde quantos ingressos essas linhas representam. O WHERE precisa vir antes para a soma enxergar só os pedidos pagos.
+traps:
+  - reason: Conta pedidos em vez de ingressos
+    sql: SELECT COUNT(*) FROM tickets WHERE status = 'pago';
+  - reason: Inclui reservas e cancelamentos
+    sql: SELECT SUM(quantity) FROM tickets;

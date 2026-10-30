@@ -1,0 +1,29 @@
+slug: veteranas-na-ativa
+order: 2
+title: Veteranas na ativa
+section: fundamentos
+difficulty: facil
+topics: [WHERE, Operadores, 'NULL']
+statement: |
+  O palco principal é reservado a bandas formadas antes de 2000 e que ainda estão em atividade. Uma banda em atividade tem `disbanded_year` nulo.
+
+  Liste o `name` dessas bandas em ordem alfabética.
+ordered: true
+solution: |
+  SELECT name
+  FROM bands
+  WHERE disbanded_year IS NULL
+    AND formed_year < 2000
+  ORDER BY name;
+hints:
+  - Rode SELECT * FROM bands e olhe a coluna disbanded_year. Depois teste o que `= NULL` devolve.
+  - '"Antes de 2000" não inclui 2000.'
+explanation: |
+  NULL significa "valor desconhecido", então qualquer comparação com `=` resulta em desconhecido, nunca em verdadeiro. Por isso existe `IS NULL`.
+traps:
+  - reason: Comparar com = NULL não retorna nada
+    sql: SELECT name FROM bands WHERE disbanded_year = NULL AND formed_year < 2000 ORDER BY name;
+  - reason: Inclui bandas formadas em 2000
+    sql: SELECT name FROM bands WHERE disbanded_year IS NULL AND formed_year <= 2000 ORDER BY name;
+  - reason: Inclui bandas encerradas
+    sql: SELECT name FROM bands WHERE formed_year < 2000 ORDER BY name;
